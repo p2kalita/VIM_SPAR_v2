@@ -40,5 +40,17 @@
         "invoice_number": "BOS-2026-1003",
         "vendor_id": 3,
         "processed_at": "2026-09-02T14:49:47.520641"
+    },
+    {
+        "invoice_id": 32,
+        "invoice_number": "CI-2026-002",
+        "vendor_id": 4,
+        "processed_at": "2026-09-02T20:32:06.014094"
+    },
+    {
+        "invoice_id": 29,
+        "invoice_number": "CI-2026-007",
+        "vendor_id": 4,
+        "processed_at": "2026-09-02T20:33:27.888017"
     }
 ]

@@ -10,7 +10,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from yaml import load_all
 from sqlalchemy.orm import joinedload
 
-from vim_database.models import User, Vendor, ValidationResult, RejectedDocument, Approval, Invoice
+from vim_database.models import User, Vendor, ValidationResult, RejectedDocument, Approval, Invoice, InvoiceDocument
 from vim_database.models import SystemConfiguration
 from vim_database.database import db
 from functools import wraps
@@ -306,7 +306,7 @@ def register_routes(app):
             try:
                 invoice_id = int(invoice_id)
             except (TypeError, ValueError):
-                flash("Enter a valid invoice ID.", "danger")
+                flash("Select an invoice.", "danger")
                 return redirect(url_for('admin_approval'))
 
             invoice = db.session.get(Invoice, invoice_id)
@@ -354,6 +354,28 @@ def register_routes(app):
  
             return redirect(url_for('admin_approval'))
  
+        file_by_invoice = {}
+        for doc in InvoiceDocument.query.order_by(InvoiceDocument.DocumentID.asc()).all():
+            file_by_invoice.setdefault(doc.InvoiceID, doc.FileName)
+
+        invoices = (
+            Invoice.query
+            .options(joinedload(Invoice.vendor))
+            .order_by(Invoice.InvoiceID.desc())
+            .all()
+        )
+        invoice_choices = []
+        for inv in invoices:
+            file_name = file_by_invoice.get(inv.InvoiceID)
+            if file_name:
+                label = f"{file_name} — {inv.InvoiceNumber}"
+            else:
+                label = inv.InvoiceNumber or f"Invoice {inv.InvoiceID}"
+            if inv.vendor and inv.vendor.VendorName:
+                label = f"{label} ({inv.vendor.VendorName})"
+            invoice_choices.append({"id": inv.InvoiceID, "label": label})
+        logger.info("[APPROVAL] Assignable invoices: %s", len(invoice_choices))
+
         approvals = (
             Approval.query
             .options(
@@ -367,7 +389,8 @@ def register_routes(app):
         return render_template(
             'vim_admin_approval.html',
             approvers=approvers,
-            approvals=approvals
+            approvals=approvals,
+            invoice_choices=invoice_choices,
         )
  
      # --------------------Added Approver Approval page----------------------------
