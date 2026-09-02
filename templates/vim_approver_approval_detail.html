@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice {{ invoice.InvoiceNumber if invoice else approval.InvoiceID }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background: #f5f7fb;
+        }
+        h1, h2 { color: #1f4e79; }
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        th { background: #e8eef7; width: 220px; }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 8px;
+        }
+        .approve { background: #198754; color: white; }
+        .reject { background: #dc3545; color: white; }
+        textarea {
+            width: 100%;
+            min-height: 80px;
+            box-sizing: border-box;
+            margin: 10px 0;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .dashboard-btn {
+            padding: 10px 20px;
+            background-color: #1f6b9a;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        .muted { color: #666; }
+    </style>
+</head>
+<body>
+    <div class="page-header">
+        <h1>{{ invoice.InvoiceNumber if invoice else 'Invoice ' ~ approval.InvoiceID }}</h1>
+        <a href="{{ url_for('approver_approvals') }}" class="dashboard-btn">← Back to approvals</a>
+    </div>
+
+    {% if not invoice %}
+    <div class="card">
+        <p>Invoice {{ approval.InvoiceID }} was not found in the database.</p>
+    </div>
+    {% else %}
+    <div class="card">
+        <h2>Invoice details</h2>
+        <table>
+            <tr><th>Invoice number</th><td>{{ invoice.InvoiceNumber }}</td></tr>
+            <tr><th>Invoice ID</th><td>{{ invoice.InvoiceID }}</td></tr>
+            <tr><th>Status</th><td>{{ invoice.InvoiceStatus }}</td></tr>
+            <tr><th>Vendor</th><td>{{ invoice.vendor.VendorName if invoice.vendor else '—' }}</td></tr>
+            <tr><th>Invoice date</th><td>{{ invoice.InvoiceDate.strftime('%Y-%m-%d') if invoice.InvoiceDate else '—' }}</td></tr>
+            <tr><th>Due date</th><td>{{ invoice.DueDate.strftime('%Y-%m-%d') if invoice.DueDate else '—' }}</td></tr>
+            <tr><th>PO number</th><td>{{ invoice.PONumber or '—' }}</td></tr>
+            <tr><th>Amount</th><td>{{ invoice.Currency }} {{ invoice.InvoiceAmount }}</td></tr>
+            <tr><th>Tax</th><td>{{ invoice.TaxAmount if invoice.TaxAmount is not none else '—' }}</td></tr>
+            <tr><th>Net</th><td>{{ invoice.NetAmount if invoice.NetAmount is not none else '—' }}</td></tr>
+            <tr><th>Payment terms</th><td>{{ invoice.PaymentTerms or '—' }}</td></tr>
+            <tr><th>Document type</th><td>{{ invoice.DocumentType or '—' }}</td></tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Line items</h2>
+        {% if invoice.line_items %}
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:auto;">Description</th>
+                    <th>Qty</th>
+                    <th>Unit price</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in invoice.line_items %}
+                <tr>
+                    <td>{{ item.Description }}</td>
+                    <td>{{ item.Quantity }}</td>
+                    <td>{{ item.CostAmount }}</td>
+                    <td>{{ item.LineAmount }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="muted">No line items on this invoice.</p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if approval.ApprovalStatus == 'Pending' %}
+    <div class="card">
+        <h2>Decision</h2>
+        <form method="POST"
+              action="{{ url_for('approver_decision', approval_id=approval.ApprovalID) }}">
+            <label for="comments"><strong>Comments</strong></label>
+            <textarea id="comments" name="comments" maxlength="255"
+                      placeholder="Optional comment (saved with your decision)"></textarea>
+            <button type="submit" name="decision" value="Approved" class="approve">Approve</button>
+            <button type="submit" name="decision" value="Rejected" class="reject">Reject</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="card">
+        <p>This request is already <strong>{{ approval.ApprovalStatus }}</strong>.</p>
+        {% if approval.Comments %}
+        <p>Comment: {{ approval.Comments }}</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</body>
+</html>

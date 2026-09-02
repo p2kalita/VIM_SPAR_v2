@@ -1,26 +1,14 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <div class="page-header">
-    <h1>My Approvals</h1>
-
-    <a href="{{ url_for('user_home', user_id=session.get('user_id')) }}"
-       class="dashboard-btn">
-        Go to Dashboard
-    </a>
-    </div>
-
+    <title>My Approvals</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 40px;
             background: #f5f7fb;
         }
-
-        h1 {
-            color: #1f4e79;
-        }
-
+        h1 { color: #1f4e79; }
         .card {
             background: white;
             padding: 25px;
@@ -28,23 +16,18 @@
             margin-bottom: 25px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
-
         table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
         }
-
         th, td {
             padding: 12px;
             border: 1px solid #ddd;
             text-align: left;
+            vertical-align: top;
         }
-
-        th {
-            background: #e8eef7;
-        }
-
+        th { background: #e8eef7; }
         button {
             padding: 8px 15px;
             border: none;
@@ -52,126 +35,93 @@
             cursor: pointer;
             margin-right: 5px;
         }
-
-        .approve {
-            background: #198754;
-            color: white;
-        }
-
-        .reject {
-            background: #dc3545;
-            color: white;
+        .approve { background: #198754; color: white; }
+        .reject { background: #dc3545; color: white; }
+        textarea {
+            width: 100%;
+            min-height: 56px;
+            box-sizing: border-box;
+            margin-bottom: 8px;
         }
         .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.dashboard-btn {
-    padding: 10px 20px;
-    background-color: #1f6b9a;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-weight: 600;
-}
-
-.dashboard-btn:hover {
-    background-color: #155274;
-}
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .dashboard-btn {
+            padding: 10px 20px;
+            background-color: #1f6b9a;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+        .muted { color: #666; font-size: 0.9em; }
     </style>
 </head>
-
 <body>
-
-
-    <div class="card">
-
-        <h2>Pending Approval Requests</h2>
-
-        <table>
-
-            <thead>
-                <tr>
-                    <th>Approval ID</th>
-                    <th>Invoice ID</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-
-            <tbody>
-
-                {% for approval in approvals %}
-
-                <tr>
-
-                    <td>
-                        {{ approval.ApprovalID }}
-                    </td>
-
-                    <td>
-                        {{ approval.InvoiceID }}
-                    </td>
-
-                    <td>
-                        {{ approval.ApprovalStatus }}
-                    </td>
-
-                    <td>
-
-                        <form method="POST"
-                              action="{{ url_for('approver_decision', approval_id=approval.ApprovalID) }}"
-                              style="display:inline;">
-
-                            <input type="hidden"
-                                   name="decision"
-                                   value="Approved">
-
-                            <button type="submit"
-                                    class="approve">
-                                Approve
-                            </button>
-
-                        </form>
-
-
-                        <form method="POST"
-                              action="{{ url_for('approver_decision', approval_id=approval.ApprovalID) }}"
-                              style="display:inline;">
-
-                            <input type="hidden"
-                                   name="decision"
-                                   value="Rejected">
-
-                            <button type="submit"
-                                    class="reject">
-                                Reject
-                            </button>
-
-                        </form>
-
-                    </td>
-
-                </tr>
-
-                {% else %}
-
-                <tr>
-                    <td colspan="4">
-                        No pending approvals.
-                    </td>
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
+    <div class="page-header">
+        <h1>My Approvals</h1>
+        <a href="{{ url_for('user_home', user_id=session.get('user_id')) }}"
+           class="dashboard-btn">Go to Dashboard</a>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <p class="muted">{{ message }}</p>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="card">
+        <h2>Pending Approval Requests</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Vendor</th>
+                    <th>Date</th>
+                    <th>Amount</th>
+                    <th>PO</th>
+                    <th>Comments &amp; action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for approval in approvals %}
+                {% set inv = approval.invoice %}
+                <tr>
+                    <td>
+                        <strong>{{ inv.InvoiceNumber if inv else '—' }}</strong>
+                        <div class="muted">ID {{ approval.InvoiceID }}</div>
+                        <a href="{{ url_for('approver_approval_detail', approval_id=approval.ApprovalID) }}">View details</a>
+                    </td>
+                    <td>{{ inv.vendor.VendorName if inv and inv.vendor else '—' }}</td>
+                    <td>{{ inv.InvoiceDate.strftime('%Y-%m-%d') if inv and inv.InvoiceDate else '—' }}</td>
+                    <td>
+                        {% if inv %}
+                            {{ inv.Currency }} {{ inv.InvoiceAmount }}
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ inv.PONumber if inv else '—' }}</td>
+                    <td>
+                        <form method="POST"
+                              action="{{ url_for('approver_decision', approval_id=approval.ApprovalID) }}">
+                            <textarea name="comments" maxlength="255"
+                                      placeholder="Optional comment (saved with your decision)"></textarea>
+                            <button type="submit" name="decision" value="Approved" class="approve">Approve</button>
+                            <button type="submit" name="decision" value="Rejected" class="reject">Reject</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">No pending approvals.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </body>
 </html>

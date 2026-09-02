@@ -8,7 +8,9 @@ from vim.timezone import get_ist_now
 from flask import app, render_template, redirect, request, url_for, flash, session, Response, jsonify, make_response
 from werkzeug.security import check_password_hash, generate_password_hash
 from yaml import load_all
-from vim_database.models import User, Vendor, ValidationResult, RejectedDocument, Approval
+from sqlalchemy.orm import joinedload
+
+from vim_database.models import User, Vendor, ValidationResult, RejectedDocument, Approval, Invoice
 from vim_database.models import SystemConfiguration
 from vim_database.database import db
 from functools import wraps
@@ -300,6 +302,17 @@ def register_routes(app):
  
             invoice_id = request.form.get('invoice_id')
             approver_user_id = request.form.get('approver_user_id')
+
+            try:
+                invoice_id = int(invoice_id)
+            except (TypeError, ValueError):
+                flash("Enter a valid invoice ID.", "danger")
+                return redirect(url_for('admin_approval'))
+
+            invoice = db.session.get(Invoice, invoice_id)
+            if invoice is None:
+                flash(f"Invoice {invoice_id} was not found.", "danger")
+                return redirect(url_for('admin_approval'))
  
             approver = User.query.filter_by(
                 UserID=approver_user_id,
@@ -311,9 +324,8 @@ def register_routes(app):
                 flash("Selected user is not an active approver.", "danger")
                 return redirect(url_for('admin_approval'))
 
-            # -------Guard: prevent duplicate pending approvals--------
             existing_approval = Approval.query.filter_by(
-                InvoiceID=invoice_id,
+                InvoiceID=invoice.InvoiceID,
                 ApproverUserID=approver.UserID,
                 ApprovalStatus='Pending'
             ).first()
@@ -323,28 +335,34 @@ def register_routes(app):
                     "warning"
                 )
                 return redirect(url_for('admin_approval'))
-           
-            # -------Added ApprovalDate when the invoice is assigned to an approver--------
+
             approval = Approval(
-                InvoiceID=invoice_id,
+                InvoiceID=invoice.InvoiceID,
                 ApproverUserID=approver.UserID,
                 ApprovalStatus='Pending',
                 ApprovalDate=get_ist_now()
             )
+            invoice.InvoiceStatus = "Pending Approval"
  
             db.session.add(approval)
             db.session.commit()
  
             flash(
-                f"Invoice assigned to {approver.Username}.",
+                f"Invoice {invoice.InvoiceNumber} assigned to {approver.Username}.",
                 "success"
             )
  
             return redirect(url_for('admin_approval'))
  
-        approvals = Approval.query.order_by(
-            Approval.ApprovalID.desc()
-        ).all()
+        approvals = (
+            Approval.query
+            .options(
+                joinedload(Approval.invoice).joinedload(Invoice.vendor),
+                joinedload(Approval.user),
+            )
+            .order_by(Approval.ApprovalID.desc())
+            .all()
+        )
  
         return render_template(
             'vim_admin_approval.html',
@@ -359,18 +377,44 @@ def register_routes(app):
  
         approver_user_id = session.get('user_id')
  
-        approvals = Approval.query.filter_by(
-            ApproverUserID=approver_user_id,
-            ApprovalStatus='Pending'
-        ).order_by(
-            Approval.ApprovalID.desc()
-        ).all()
+        approvals = (
+            Approval.query
+            .options(joinedload(Approval.invoice).joinedload(Invoice.vendor))
+            .filter_by(
+                ApproverUserID=approver_user_id,
+                ApprovalStatus='Pending'
+            )
+            .order_by(Approval.ApprovalID.desc())
+            .all()
+        )
  
         return render_template(
             'vim_approver_approvals.html',
             approvals=approvals
         )
-    # ---------------Added Approve/Reject route--------------------
+
+    @app.route('/approver/approvals/<int:approval_id>')
+    @approver_required
+    def approver_approval_detail(approval_id):
+        approver_user_id = session.get('user_id')
+        approval = (
+            Approval.query
+            .options(
+                joinedload(Approval.invoice).joinedload(Invoice.vendor),
+                joinedload(Approval.invoice).joinedload(Invoice.line_items),
+            )
+            .filter_by(
+                ApprovalID=approval_id,
+                ApproverUserID=approver_user_id,
+            )
+            .first_or_404()
+        )
+        return render_template(
+            'vim_approver_approval_detail.html',
+            approval=approval,
+            invoice=approval.invoice,
+        )
+
     @app.route('/approver/decision/<int:approval_id>', methods=['POST'])
     @approver_required
     def approver_decision(approval_id):
@@ -388,9 +432,27 @@ def register_routes(app):
         if decision not in ['Approved', 'Rejected']:
            flash("Invalid approval decision.", "danger")
            return redirect(url_for('approver_approvals'))
- 
+
+        comments = (request.form.get('comments') or '').strip()[:255]
         approval.ApprovalStatus = decision
         approval.ApprovalDate = get_ist_now()
+        approval.Comments = comments or None
+
+        invoice = db.session.get(Invoice, approval.InvoiceID)
+        if invoice is not None:
+            if decision == 'Rejected':
+                invoice.InvoiceStatus = 'Rejected'
+            else:
+                other_pending = (
+                    Approval.query.filter(
+                        Approval.InvoiceID == invoice.InvoiceID,
+                        Approval.ApprovalStatus == 'Pending',
+                        Approval.ApprovalID != approval.ApprovalID,
+                    ).count()
+                )
+                invoice.InvoiceStatus = (
+                    'Pending Approval' if other_pending else 'Approved'
+                )
  
         db.session.commit()
  

@@ -140,9 +140,11 @@
             <thead>
                 <tr>
                     <th>Approval ID</th>
-                    <th>Invoice ID</th>
-                    <th>Approver User ID</th>
+                    <th>Invoice</th>
+                    <th>Vendor</th>
+                    <th>Approver</th>
                     <th>Status</th>
+                    <th>Comments</th>
                     <th>Approval Date</th>
                 </tr>
             </thead>
@@ -153,16 +155,21 @@
 
                 <tr>
                     <td>{{ approval.ApprovalID }}</td>
-                    <td>{{ approval.InvoiceID }}</td>
-                    <td>{{ approval.ApproverUserID }}</td>
+                    <td>
+                        {{ approval.invoice.InvoiceNumber if approval.invoice else '—' }}
+                        <div style="color:#666; font-size:0.85em;">ID {{ approval.InvoiceID }}</div>
+                    </td>
+                    <td>{{ approval.invoice.vendor.VendorName if approval.invoice and approval.invoice.vendor else '—' }}</td>
+                    <td>{{ approval.user.Username if approval.user else approval.ApproverUserID }}</td>
                     <td>{{ approval.ApprovalStatus }}</td>
+                    <td>{{ approval.Comments or '—' }}</td>
                     <td>{{ approval.ApprovalDate }}</td>
                 </tr>
 
                 {% else %}
 
                 <tr>
-                    <td colspan="5">
+                    <td colspan="7">
                         No approval records found.
                     </td>
                 </tr>
