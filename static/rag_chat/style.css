@@ -4,6 +4,7 @@
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
 /* ── CSS Variables ──────────────────────────────────────────── */
 :root {
@@ -57,58 +58,71 @@ button  { cursor: pointer; border: none; background: none; font-family: inherit;
 input, textarea, select { font-family: inherit; }
 a { text-decoration: none; }
 
-/* ── Topbar ─────────────────────────────────────────────── */
-#topbar {
-  height: 56px;
-  border-bottom: 1px solid var(--border-color);
-  padding: 0 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  background: var(--white);
-  z-index: 100;
+/* ── Header Section (Exact Validation Dashboard Header) ──────── */
+.header_section, #topbar {
+  padding: 10px 4% !important;
+  border-bottom: 1px solid white !important;
+  background-color: #090f22 !important;
+  flex-shrink: 0 !important;
+  z-index: 100 !important;
+  width: 100% !important;
 }
 
-.brand-group {
-  display: flex;
-  align-items: center;
-  gap: 16px;
+.header_canvas {
+  padding: 5px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  box-shadow: 
+    inset 0 0 100px rgba(255, 255, 255, 0.11),
+    0 0 150px rgba(255, 255, 255, 0.25) !important;
+  width: 100% !important;
 }
 
-#brand-logo {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  text-decoration: none;
-  transition: opacity var(--transition);
-}
-#brand-logo:hover { opacity: 0.8; }
-
-#spar-logo {
-  height: 32px;
-  width: auto;
+.header_canvas .logo {
+  cursor: pointer;
+  height: 80px;
+  width: 130px;
+  object-fit: contain;
   display: block;
+}
+
+.header_canvas h4 {
+  color: white;
+  font-family: "Montserrat", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 500;
+  margin: 0;
+  text-align: center;
+}
+
+.nav_side_buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav_side_buttons img {
+  height: 80px;
+  width: 80px;
   object-fit: contain;
 }
 
-.dashboard-back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8125rem;
+.nav_side_buttons button {
+  padding: 9px 25px;
+  background-color: rgba(0, 136, 169, 1);
+  border: none;
+  border-radius: 50px;
+  color: white;
+  font-size: 16px;
   font-weight: 500;
-  color: var(--gray-600);
-  padding: 6px 12px;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-sm);
-  background: var(--gray-50);
-  transition: all var(--transition);
+  font-family: "Montserrat", sans-serif;
+  cursor: pointer;
+  transition: all 0.3s ease 0s;
 }
-.dashboard-back-link:hover {
-  background: var(--gray-100);
-  color: var(--gray-900);
-  border-color: var(--gray-300);
+
+.nav_side_buttons button:hover {
+  background-color: rgba(0, 136, 169, 0.8);
 }
 
 /* ── Model info banner (top of main content area) ───────── */
@@ -193,7 +207,7 @@ a { text-decoration: none; }
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .btn-icon-hdr {
@@ -203,31 +217,72 @@ a { text-decoration: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--gray-600);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   transition: background var(--transition), color var(--transition);
 }
-.btn-icon-hdr:hover { background: var(--gray-50); }
+.btn-icon-hdr:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
 .btn-icon-hdr svg  { width: 20px; height: 20px; }
 
 .btn-text-hdr {
-  padding: 6px 12px;
+  padding: 7px 14px;
   font-size: 0.8125rem;
-  color: var(--gray-700);
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   border-radius: var(--radius-sm);
-  transition: background var(--transition);
+  backdrop-filter: blur(4px);
+  transition: all var(--transition);
 }
-.btn-text-hdr:hover { background: var(--gray-50); }
+.btn-text-hdr:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.65);
+  transform: translateY(-1px);
+}
 
-.btn-primary-hdr {
-  padding: 6px 14px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--white);
-  background: var(--gray-900);
-  border-radius: var(--radius-sm);
-  transition: background var(--transition);
+@media (max-width: 900px) {
+  .header_canvas h4 {
+    font-size: 1.15rem;
+  }
 }
-.btn-primary-hdr:hover { background: var(--gray-700); }
+
+@media (max-width: 768px) {
+  .header_section {
+    padding: 8px 12px;
+  }
+  .header_canvas h4 {
+    font-size: 0.95rem;
+  }
+  .header_canvas .logo {
+    height: 55px;
+    width: 90px;
+  }
+  .nav_side_buttons img {
+    height: 55px;
+    width: 55px;
+  }
+  .nav_side_buttons button {
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 580px) {
+  .header_canvas h4 {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .header-title {
+    display: none;
+  }
+}
 
 /* ── Main area ──────────────────────────────────────────────── */
 #main-area {

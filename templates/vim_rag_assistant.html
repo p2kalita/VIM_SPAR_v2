@@ -11,32 +11,25 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/rag_chat/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/rag_chat/style.css?v=2" />
 </head>
 
 <body>
 
-  <!-- ── Header ──────────────────────────────────────────────── -->
-  <header id="topbar">
-    <div class="brand-group">
-      <!-- SPAR Logo -->
-      <a href="/admin/ai_assistant" id="brand-logo" aria-label="SPAR Home">
-        <img src="/static/rag_chat/logo.png" alt="SPAR Logo" id="spar-logo" />
+  <!-- ── Header (Exact Validation Dashboard Layout) ─────────── -->
+  <header class="header_section" id="topbar">
+    <div class="header_canvas">
+      <a href="/admin">
+        <img class="logo" src="/static/logo.png" alt="logo" height="80px" width="130px">
       </a>
-      <!-- Return to VIM Dashboard -->
-      <a href="/admin" class="dashboard-back-link" title="Return to VIM Admin Dashboard">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Dashboard
-      </a>
-    </div>
-
-    <div class="header-actions">
-      <!-- Settings -->
-      <button class="btn-text-hdr" id="settings-btn" aria-label="Open settings">⚙️ Settings</button>
-      <!-- New Thread -->
-      <!-- <button class="btn-primary-hdr" id="new-thread-btn" aria-label="Start new thread">+ New Thread</button> -->
+      <h4>AI-Powered Vendor Invoice Management Dashboard</h4>
+      <div class="nav_side_buttons">
+        <a class="header_dashboard_button" href="/admin"><button type="button">Dashboard</button></a>
+        <button type="button" id="settings-btn" aria-label="Open settings">Settings</button>
+        <img src="/static/admin_icon.png" alt="admin logo" height="80px" width="80px">
+      </div>
     </div>
   </header>
 
@@ -74,7 +67,7 @@
       <!-- Animated gradient orb -->
       <div class="orb" id="orb" aria-hidden="true"></div>
 
-      <h1 id="welcome-heading">{{ greeting or 'Good day, Partha' }}</h1>
+      <h1 id="welcome-heading">{{ greeting or 'Good day, Admin' }}</h1>
       <p class="welcome-sub">How can I assist with your <span class="accent">invoices today?</span></p>
 
       <!-- Document Stats Pill -->
