@@ -3,6 +3,7 @@ from decimal import Decimal
 from vim.timezone import get_ist_now
 
 from sqlalchemy import func
+from vim_logger import get_logger
 
 from vim_database.models import (
     Invoice,
@@ -11,6 +12,8 @@ from vim_database.models import (
     ValidationResult,
     Vendor,
 )
+
+logger = get_logger("vim.dashboard.service")
 
 _FAILED_STATUSES = ["FAILED", "Failed", "FAIL"]
 

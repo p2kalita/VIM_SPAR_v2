@@ -90,7 +90,7 @@
   /* ── Summary cards ───────────────────────────────── */
   .ev-summary-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     margin-bottom: 24px;
   }
@@ -100,6 +100,32 @@
     border-radius: 10px;
     padding: 18px 20px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    user-select: none;
+    position: relative;
+  }
+  .ev-summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    border-color: #bbb;
+  }
+  .ev-summary-card.active {
+    border-color: #3454d1;
+    box-shadow: 0 0 0 2px rgba(52,84,209,0.25), 0 4px 12px rgba(52,84,209,0.1);
+    background: #fdfdff;
+  }
+  .ev-summary-card.active::after {
+    content: "✓ Filter active";
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #3454d1;
+    background: #eef2ff;
+    padding: 2px 8px;
+    border-radius: 12px;
   }
   .ev-summary-card .ev-label {
     font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
@@ -109,7 +135,6 @@
   .ev-count.ev-total   { color: #333; }
   .ev-count.ev-failed  { color: #c0392b; }
   .ev-count.ev-passed  { color: #1c8a5a; }
-  .ev-count.ev-pending { color: #b4790f; }
 
   /* ── Toolbar ─────────────────────────────────────── */
   .ev-toolbar {
@@ -124,12 +149,12 @@
     align-items: center;
   }
   .ev-toolbar select, .ev-toolbar input {
-    font-size: 13px;
-    padding: 6px 10px;
-    border: 1px solid #ccc;
+    font-size: 14px;
+    padding: 7px 12px;
+    border: 1px solid #cbd5e1;
     border-radius: 6px;
     background: #fff;
-    color: #222;
+    color: #1e293b;
     outline: none;
   }
   .ev-toolbar select:focus, .ev-toolbar input:focus {
@@ -138,17 +163,17 @@
   }
   #ev-search { flex: 1; min-width: 200px; }
   #ev-clear-filters {
-    padding: 6px 14px;
-    border: 1px solid #ccc;
+    padding: 7px 16px;
+    border: 1px solid #cbd5e1;
     border-radius: 6px;
     background: #fff;
-    font-size: 13px;
+    font-size: 14px;
     cursor: pointer;
-    color: #333;
+    color: #334155;
     transition: background 0.12s;
     white-space: nowrap;
   }
-  #ev-clear-filters:hover { background: #f5f5f5; }
+  #ev-clear-filters:hover { background: #f8fafc; }
 
   /* ── Table ───────────────────────────────────────── */
   .ev-table-wrap {
@@ -158,51 +183,51 @@
     overflow: hidden;
     box-shadow: 0 2px 6px rgba(0,0,0,0.04);
   }
-  .ev-table-wrap table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .ev-table-wrap table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
   .ev-table-wrap thead tr { background: #fafafa; border-bottom: 1px solid #e8e8e8; }
   .ev-table-wrap th {
-    padding: 11px 16px; text-align: left;
-    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-    text-transform: uppercase; color: #888; white-space: nowrap;
+    padding: 13px 18px; text-align: left;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #64748b; white-space: nowrap;
   }
   .ev-table-wrap tbody tr { border-bottom: 1px solid #f0f0f0; transition: background 0.1s; cursor: pointer; }
   .ev-table-wrap tbody tr:last-child { border-bottom: none; }
-  .ev-table-wrap tbody tr:hover { background: #fafafa; }
-  .ev-table-wrap td { padding: 12px 16px; vertical-align: middle; color: #222; }
-  .mono { font-family: "JetBrains Mono","Fira Code","SF Mono", monospace; font-size: 0.85em; }
+  .ev-table-wrap tbody tr:hover { background: #f8fafc; }
+  .ev-table-wrap td { padding: 14px 18px; vertical-align: middle; color: #1e293b; font-size: 14.5px; }
+  .mono { font-family: "JetBrains Mono","Fira Code","SF Mono", monospace; font-size: 14px; }
 
   /* ── Type pill ───────────────────────────────────── */
   .ev-type-pill {
-    font-size: 11px; color: #555; background: #f2f2f2;
-    border-radius: 4px; padding: 3px 8px; white-space: nowrap;
+    font-size: 13px; font-weight: 500; color: #334155; background: #f1f5f9;
+    border: 1px solid #e2e8f0; border-radius: 5px; padding: 4px 10px; white-space: nowrap;
   }
 
   /* ── Status badge ────────────────────────────────── */
-  .ev-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; text-transform: capitalize; }
-  .ev-st-passed      { color: #1c8a5a; background: #e3f5ec; }
-  .ev-st-failed      { color: #c23b3b; background: #fbe9e9; }
-  .ev-st-pending     { color: #b4790f; background: #fbf0dd; }
-  .ev-st-warning     { color: #3454d1; background: #e8ecfb; }
-  .ev-st-skipped     { color: #5b6472; background: #eef0f3; }
-  .ev-st-error       { color: #c23b3b; background: #fbe9e9; }
+  .ev-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; white-space: nowrap; text-transform: capitalize; }
+  .ev-st-passed      { color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0; }
+  .ev-st-failed      { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; }
+  .ev-st-pending     { color: #b45309; background: #fef3c7; border: 1px solid #fde68a; }
+  .ev-st-warning     { color: #1d4ed8; background: #dbeafe; border: 1px solid #bfdbfe; }
+  .ev-st-skipped     { color: #475569; background: #f1f5f9; border: 1px solid #e2e8f0; }
+  .ev-st-error       { color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; }
   /* fallback for any other status */
-  .ev-badge-default  { color: #5b6472; background: #eef0f3; }
+  .ev-badge-default  { color: #475569; background: #f1f5f9; border: 1px solid #e2e8f0; }
 
   /* ── Actions ─────────────────────────────────────── */
   .ev-btn-details {
-    padding: 4px 12px; border: 1px solid #ccc; border-radius: 5px;
-    background: #fff; font-size: 12px; cursor: pointer; color: #333;
-    transition: background 0.12s, border-color 0.12s; white-space: nowrap;
+    padding: 5px 14px; border: 1px solid #cbd5e1; border-radius: 6px;
+    background: #fff; font-size: 13.5px; font-weight: 500; cursor: pointer; color: #1e293b;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s; white-space: nowrap;
   }
-  .ev-btn-details:hover { background: #f5f5f5; border-color: #aaa; }
+  .ev-btn-details:hover { background: #f8fafc; border-color: #94a3b8; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
   /* ── Empty state ─────────────────────────────────── */
-  .ev-empty { text-align: center; padding: 60px 20px; color: #aaa; font-size: 14px; }
+  .ev-empty { text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 15px; }
 
   /* ── Footer / pagination ─────────────────────────── */
   .ev-footer {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 16px; font-size: 12.5px; color: #666;
+    padding: 12px 18px; font-size: 13.5px; color: #475569;
     border-top: 1px solid #f0f0f0;
   }
   .ev-page-controls { display: flex; align-items: center; gap: 8px; }
@@ -218,43 +243,82 @@
   /* ── Detail modal ────────────────────────────────── */
   .ev-modal-overlay {
     display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.4); z-index: 9999;
+    background: rgba(0,0,0,0.45); z-index: 9999;
     align-items: center; justify-content: center;
+    backdrop-filter: blur(2px);
   }
   .ev-modal-overlay.open { display: flex; }
   .ev-modal {
     background: #fff; border-radius: 12px;
-    width: 580px; max-width: 95vw; max-height: 85vh; overflow-y: auto;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.2);
+    width: 680px; max-width: 95vw; max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.22);
   }
   .ev-modal-header {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 18px 22px; border-bottom: 1px solid #efefef; position: sticky; top: 0; background: #fff;
+    padding: 18px 24px; border-bottom: 1px solid #efefef; position: sticky; top: 0; background: #fff; z-index: 10;
   }
-  .ev-modal-header h2 { font-size: 15px; font-weight: 600; }
-  .ev-modal-close { background: none; border: none; cursor: pointer; font-size: 20px; color: #888; padding: 0 4px; }
-  .ev-modal-close:hover { color: #222; }
-  .ev-modal-body { padding: 20px 22px; }
-  .ev-modal-row { display: flex; gap: 12px; margin-bottom: 12px; font-size: 13px; }
-  .ev-modal-row .k { min-width: 130px; color: #888; font-weight: 500; flex-shrink: 0; }
-  .ev-modal-row .v { color: #111; word-break: break-all; }
+  .ev-modal-header h2 { font-size: 16px; font-weight: 700; color: #0f172a; }
+  .ev-modal-close { background: none; border: none; cursor: pointer; font-size: 22px; color: #94a3b8; padding: 0 6px; }
+  .ev-modal-close:hover { color: #1e293b; }
+  .ev-modal-body { padding: 22px 24px; }
+
+  /* Drawer / Action Panels */
+  .ev-btn-manual-edit-sm {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 5px; font-size: 12.5px; font-weight: 600;
+    cursor: pointer; border: 1px solid #3b82f6; background: #eff6ff; color: #1d4ed8;
+    transition: all 0.15s ease;
+  }
+  .ev-btn-manual-edit-sm:hover {
+    background: #3b82f6; color: #fff; border-color: #2563eb;
+    box-shadow: 0 2px 6px rgba(59,130,246,0.25);
+  }
+
+  .ev-action-panel {
+    display: none; background: #f8fafc; border: 1px solid #cbd5e1;
+    border-radius: 8px; padding: 16px; margin-top: 10px; margin-bottom: 8px;
+    animation: ev-slide-down 0.2s ease-out;
+  }
+  .ev-action-panel.open { display: block; }
+  @keyframes ev-slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ev-action-panel h3 { font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+  .ev-form-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px;
+  }
+  .ev-form-group { display: flex; flex-direction: column; gap: 4px; }
+  .ev-form-group.full { grid-column: span 2; }
+  .ev-form-group label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.04em; }
+  .ev-form-group input, .ev-form-group select, .ev-form-group textarea {
+    padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; outline: none;
+  }
+  .ev-form-group input:focus, .ev-form-group select:focus, .ev-form-group textarea:focus {
+    border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  .ev-panel-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+
+  .ev-modal-row { display: flex; gap: 14px; margin-bottom: 12px; font-size: 14px; }
+  .ev-modal-row .k { min-width: 140px; color: #64748b; font-weight: 600; flex-shrink: 0; }
+  .ev-modal-row .v { color: #0f172a; word-break: break-all; }
   .ev-modal-payload {
     background: #0d1117; color: #c9d1d9; padding: 14px; border-radius: 8px;
-    font-family: "JetBrains Mono","Fira Code", monospace; font-size: 12px;
-    max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-all;
-    margin-top: 8px;
+    font-family: "JetBrains Mono","Fira Code", monospace; font-size: 12.5px;
+    max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-all;
+    margin-top: 8px; border: 1px solid #30363d;
   }
   .ev-modal-footer {
-    padding: 14px 22px; border-top: 1px solid #efefef;
-    display: flex; justify-content: flex-end;
+    padding: 14px 24px; border-top: 1px solid #efefef;
+    display: flex; justify-content: flex-end; align-items: center;
   }
   .ev-close-btn {
-    padding: 7px 18px; border-radius: 6px; font-size: 13px;
-    cursor: pointer; font-weight: 500;
-    background: #f0f0f0; color: #333; border: 1px solid #ccc;
+    padding: 6px 18px; border-radius: 6px; font-size: 13px;
+    cursor: pointer; font-weight: 600;
+    background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;
     transition: background 0.15s;
   }
-  .ev-close-btn:hover { background: #e0e0e0; }
+  .ev-close-btn:hover { background: #e2e8f0; }
 
   /* ── Error banner ────────────────────────────────── */
   .ev-error-banner {
@@ -275,7 +339,7 @@
 
   /* ── Responsive ──────────────────────────────────── */
   @media (max-width: 768px) {
-    .ev-summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .ev-summary-grid { grid-template-columns: 1fr; }
     .ev-table-wrap th:nth-child(4), .ev-table-wrap td:nth-child(4),
     .ev-table-wrap th:nth-child(5), .ev-table-wrap td:nth-child(5) { display: none; }
   }
@@ -317,21 +381,17 @@
 
   <!-- Summary cards -->
   <div class="ev-summary-grid" style="margin-top:20px;">
-    <div class="ev-summary-card">
+    <div class="ev-summary-card active" id="ev-card-total" onclick="evFilterByCard('')" title="Click to show all records">
       <div class="ev-label">Total Records</div>
       <div class="ev-count ev-total" id="ev-cnt-total">—</div>
     </div>
-    <div class="ev-summary-card">
+    <div class="ev-summary-card" id="ev-card-failed" onclick="evFilterByCard('FAILED')" title="Click to filter by Failed">
       <div class="ev-label">Failed</div>
       <div class="ev-count ev-failed" id="ev-cnt-failed">—</div>
     </div>
-    <div class="ev-summary-card">
+    <div class="ev-summary-card" id="ev-card-passed" onclick="evFilterByCard('PASSED')" title="Click to filter by Passed">
       <div class="ev-label">Passed</div>
       <div class="ev-count ev-passed" id="ev-cnt-passed">—</div>
-    </div>
-    <div class="ev-summary-card">
-      <div class="ev-label">Pending</div>
-      <div class="ev-count ev-pending" id="ev-cnt-pending">—</div>
     </div>
   </div>
 
@@ -515,19 +575,47 @@ async function evLoadEvents() {
   }
 }
 
+/* ── Card Filter ── */
+function evFilterByCard(status) {
+  evState.status = status;
+  evState.page = 1;
+  const select = document.getElementById("ev-status-filter");
+  if (select) {
+    let matched = false;
+    for (const opt of select.options) {
+      if (opt.value.toUpperCase() === (status || '').toUpperCase()) {
+        select.value = opt.value;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) select.value = status;
+  }
+  evUpdateCardActive();
+  evLoadEvents();
+}
+
+function evUpdateCardActive() {
+  const current = (evState.status || '').toUpperCase();
+  document.getElementById("ev-card-total")?.classList.toggle("active", current === "");
+  document.getElementById("ev-card-failed")?.classList.toggle("active", current === "FAILED");
+  document.getElementById("ev-card-passed")?.classList.toggle("active", current === "PASSED");
+}
+
 /* ── Summary counts ── */
 async function evUpdateCounts() {
   try {
-    const [total, failed, passed, pending] = await Promise.all([
+    const [total, failed, passed] = await Promise.all([
       fetch(`${EV_API}/results?page=1&page_size=1`).then(r=>r.json()).then(d=>d.total),
-      fetch(`${EV_API}/results?page=1&page_size=1&status=failed`).then(r=>r.json()).then(d=>d.total),
-      fetch(`${EV_API}/results?page=1&page_size=1&status=passed`).then(r=>r.json()).then(d=>d.total),
-      fetch(`${EV_API}/results?page=1&page_size=1&status=pending`).then(r=>r.json()).then(d=>d.total),
+      fetch(`${EV_API}/results?page=1&page_size=1&status=FAILED`).then(r=>r.json()).then(d=>d.total),
+      fetch(`${EV_API}/results?page=1&page_size=1&status=PASSED`).then(r=>r.json()).then(d=>d.total),
     ]);
-    document.getElementById("ev-cnt-total").textContent  = total;
-    document.getElementById("ev-cnt-failed").textContent = failed;
-    document.getElementById("ev-cnt-passed").textContent = passed;
-    document.getElementById("ev-cnt-pending").textContent= pending;
+    const elTotal  = document.getElementById("ev-cnt-total");
+    const elFailed = document.getElementById("ev-cnt-failed");
+    const elPassed = document.getElementById("ev-cnt-passed");
+    if (elTotal)  elTotal.textContent  = total ?? "0";
+    if (elFailed) elFailed.textContent = failed ?? "0";
+    if (elPassed) elPassed.textContent = passed ?? "0";
   } catch(e) { /* silent */ }
 }
 
@@ -545,12 +633,12 @@ function evRenderTable(items) {
 
   tbody.innerHTML = items.map(r => `
     <tr data-id="${evEscape(r.id)}">
-      <td class="mono">#${evEscape(r.id)}</td>
-      <td class="mono">${evEscape(r.invoice_number || "—")}</td>
-      <td class="mono" style="color:#888;">${evEscape(r.invoice_id)}</td>
+      <td class="mono" style="font-weight:600;color:#334155;">#${evEscape(r.id)}</td>
+      <td class="mono" style="font-weight:700;color:#0f172a;">${evEscape(r.invoice_number || "—")}</td>
+      <td class="mono" style="color:#64748b;">${evEscape(r.invoice_id)}</td>
       <td><span class="ev-type-pill">${evEscape((r.validation_type || "—").replace(/_/g," "))}</span></td>
       <td><span class="ev-badge ${evStatusClass(r.status)}">${evEscape(r.status || "—")}</span></td>
-      <td class="mono" style="font-size:12px;color:#555;">${evEscape(evFmt(r.validation_date))}</td>
+      <td class="mono" style="font-size:13.5px;color:#334155;">${evEscape(evFmt(r.validation_date))}</td>
       <td>
         <button class="ev-btn-details" data-id="${evEscape(r.id)}"
                 onclick="evOpenModal(event, ${evEscape(r.id)})">Details</button>
@@ -577,34 +665,132 @@ function evRenderFooter() {
   document.getElementById("ev-next-page").disabled = evState.page >= totalPages;
 }
 
-/* ── Detail Modal ── */
+/* ── Detail Modal & Actions ── */
+let evCurrentDetail = null;
+
 async function evOpenModal(e, id) {
   if (e) e.stopPropagation();
   try {
     const res = await fetch(`${EV_API}/results/${id}`);
     if (!res.ok) { evToast("Could not load validation detail.", false); return; }
     const r = await res.json();
+    evCurrentDetail = r;
 
     document.getElementById("ev-modal-id").textContent = `#${r.id}`;
-    const detailJson = r.details
-      ? JSON.stringify(r.details, null, 2)
-      : "{}";
+    const inv = r.invoice_info || {};
+    const detailJson = r.details ? JSON.stringify(r.details, null, 2) : "{}";
+
+    const isFailed = (r.status || '').toUpperCase() === 'FAILED';
 
     document.getElementById("ev-modal-body").innerHTML = `
+      <!-- Detail Rows -->
       <div class="ev-modal-row"><span class="k">Validation ID</span><span class="v mono">#${evEscape(r.id)}</span></div>
-      <div class="ev-modal-row"><span class="k">Invoice Number</span><span class="v mono">${evEscape(r.invoice_number || "—")}</span></div>
+      <div class="ev-modal-row"><span class="k">Invoice Number</span><span class="v mono" style="font-weight:700;">${evEscape(r.invoice_number || "—")}</span></div>
       <div class="ev-modal-row"><span class="k">Invoice ID</span><span class="v mono">${evEscape(r.invoice_id)}</span></div>
-      <div class="ev-modal-row"><span class="k">Validation Type</span><span class="v">${evEscape((r.validation_type || "—").replace(/_/g," "))}</span></div>
+      ${inv.vendor_name ? `<div class="ev-modal-row"><span class="k">Vendor Name</span><span class="v"><b>${evEscape(inv.vendor_name)}</b></span></div>` : ""}
+      <div class="ev-modal-row"><span class="k">Validation Type</span><span class="v"><span class="ev-type-pill">${evEscape((r.validation_type || "—").replace(/_/g," "))}</span></span></div>
       <div class="ev-modal-row"><span class="k">Status</span>
         <span class="v"><span class="ev-badge ${evStatusClass(r.status)}">${evEscape(r.status || "—")}</span></span></div>
       <div class="ev-modal-row"><span class="k">Validation Date</span><span class="v mono">${evEscape(evFmt(r.validation_date))}</span></div>
-      ${r.message ? `<div class="ev-modal-row"><span class="k">Message</span><span class="v" style="color:#c23b3b;">${evEscape(r.message)}</span></div>` : ""}
-      <div class="ev-modal-row"><span class="k">Validation Details</span><span class="v"></span></div>
+      ${r.message ? `<div class="ev-modal-row"><span class="k">Message</span><span class="v" style="color:#b91c1c;font-weight:600;">${evEscape(r.message)}</span></div>` : ""}
+      <div class="ev-modal-row" style="margin-top:14px;"><span class="k">Validation Details</span><span class="v"></span></div>
       <div class="ev-modal-payload">${evEscape(detailJson)}</div>
+
+      ${isFailed ? `
+      <!-- Manual Edit Section (shown only for Failed events, positioned right above Close button) -->
+      <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
+          <button type="button" class="ev-btn-manual-edit-sm" onclick="evToggleEditPanel()">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Manual Edit Fields
+          </button>
+        </div>
+
+        <!-- Manual Edit Form Panel -->
+        <div class="ev-action-panel" id="ev-panel-edit">
+          <h3>✏️ Edit Invoice Fields</h3>
+          <form id="ev-edit-form" onsubmit="evSubmitManualEdit(event, ${r.invoice_id}, ${r.id})">
+            <div class="ev-form-grid">
+              <div class="ev-form-group">
+                <label>Invoice Number</label>
+                <input type="text" id="ev-edit-inv-num" value="${evEscape(inv.invoice_number || r.invoice_number || '')}" required />
+              </div>
+              <div class="ev-form-group">
+                <label>PO Number</label>
+                <input type="text" id="ev-edit-po-num" value="${evEscape(inv.po_number || '')}" placeholder="PO-XXXX" />
+              </div>
+              <div class="ev-form-group">
+                <label>Total / Gross Amount</label>
+                <input type="number" step="0.01" id="ev-edit-amount" value="${inv.invoice_amount !== null && inv.invoice_amount !== undefined ? inv.invoice_amount : ''}" />
+              </div>
+              <div class="ev-form-group">
+                <label>Net Amount</label>
+                <input type="number" step="0.01" id="ev-edit-net" value="${inv.net_amount !== null && inv.net_amount !== undefined ? inv.net_amount : ''}" />
+              </div>
+              <div class="ev-form-group">
+                <label>Tax Amount</label>
+                <input type="number" step="0.01" id="ev-edit-tax" value="${inv.tax_amount !== null && inv.tax_amount !== undefined ? inv.tax_amount : ''}" />
+              </div>
+              <div class="ev-form-group">
+                <label>Due Date</label>
+                <input type="date" id="ev-edit-due-date" value="${inv.due_date || ''}" />
+              </div>
+              <div class="ev-form-group full">
+                <label>Payment Terms</label>
+                <input type="text" id="ev-edit-terms" value="${evEscape(inv.payment_terms || '')}" placeholder="e.g. Net 30, Due upon receipt" />
+              </div>
+            </div>
+            <div class="ev-panel-btns">
+              <button type="button" class="ev-close-btn" onclick="evToggleEditPanel()">Cancel</button>
+              <button type="submit" class="ev-btn-manual-edit-sm" style="background:#2563eb;color:#fff;border-color:#1d4ed8;padding:6px 16px;">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+      ` : ''}
     `;
     document.getElementById("ev-modal").classList.add("open");
   } catch (err) {
     evToast("Failed to fetch validation detail.", false);
+  }
+}
+
+function evToggleEditPanel() {
+  const editPanel = document.getElementById("ev-panel-edit");
+  editPanel?.classList.toggle('open');
+}
+
+/* ── Manual Edit Submission ── */
+async function evSubmitManualEdit(e, invoiceId, validationId) {
+  e.preventDefault();
+  const payload = {
+    invoice_number: document.getElementById("ev-edit-inv-num")?.value.trim(),
+    po_number:      document.getElementById("ev-edit-po-num")?.value.trim(),
+    invoice_amount: document.getElementById("ev-edit-amount")?.value ? parseFloat(document.getElementById("ev-edit-amount").value) : null,
+    net_amount:     document.getElementById("ev-edit-net")?.value ? parseFloat(document.getElementById("ev-edit-net").value) : null,
+    tax_amount:     document.getElementById("ev-edit-tax")?.value ? parseFloat(document.getElementById("ev-edit-tax").value) : null,
+    due_date:       document.getElementById("ev-edit-due-date")?.value || null,
+    payment_terms:  document.getElementById("ev-edit-terms")?.value.trim(),
+  };
+
+  try {
+    const res = await fetch(`${EV_API}/edit_invoice/${invoiceId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Edit failed");
+
+    evToast("✅ Invoice fields updated successfully!");
+    evToggleEditPanel();
+    evOpenModal(null, validationId);
+    evLoadEvents();
+  } catch (err) {
+    evToast(`⚠️ ${err.message}`, false);
   }
 }
 
@@ -633,6 +819,7 @@ document.getElementById("ev-search").addEventListener("input", e => {
   document.getElementById(id).addEventListener("change", e => {
     evState[key] = e.target.value;
     evState.page = 1;
+    if (key === "status") evUpdateCardActive();
     evLoadEvents();
   });
 });
@@ -643,6 +830,7 @@ document.getElementById("ev-clear-filters").addEventListener("click", () => {
   document.getElementById("ev-status-filter").value = "";
   document.getElementById("ev-type-filter").value   = "";
   document.getElementById("ev-time-filter").value   = "";
+  evUpdateCardActive();
   evLoadEvents();
 });
 

@@ -1,20 +1,30 @@
 import sqlite3
 import os
+from vim_logger import get_logger
+
+logger = get_logger("vim.check_db")
 
 BASEDIR = os.path.abspath(os.path.dirname(__file__))
-
 db_path = os.path.join(BASEDIR, "instance", "vim_database.sqlite")
 
-print("Looking for:", os.path.abspath(db_path))
-print("Exists:", os.path.exists(db_path))
+logger.info("[CHECK-DB] Looking for DB at: %s", os.path.abspath(db_path))
+logger.info("[CHECK-DB] File exists: %s", os.path.exists(db_path))
 
-conn = sqlite3.connect(db_path)
-cur = conn.cursor()
+if os.path.exists(db_path):
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
 
-cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
-print("Tables:", cur.fetchall())
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = cur.fetchall()
+    logger.info("[CHECK-DB] Tables (%d): %s", len(tables), tables)
 
-cur.execute("SELECT * FROM user;")
-print("Users:", cur.fetchall())
+    try:
+        cur.execute("SELECT * FROM user;")
+        users = cur.fetchall()
+        logger.info("[CHECK-DB] Users (%d): %s", len(users), users)
+    except Exception as e:
+        logger.warning("[CHECK-DB] Could not query user table: %s", e)
 
-conn.close()
+    conn.close()
+else:
+    logger.warning("[CHECK-DB] Database file not found at %s", db_path)

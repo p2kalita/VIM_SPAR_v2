@@ -9,8 +9,11 @@ retyped, so running it against an up-to-date database is a no-op.
 """
 
 from sqlalchemy import inspect, text
+from vim_logger import get_logger
 
 from vim_database.database import db
+
+logger = get_logger("vim.database.migrate")
 
 
 def sync_columns(verbose: bool = True) -> tuple[list[str], list[str]]:
@@ -56,17 +59,12 @@ def sync_columns(verbose: bool = True) -> tuple[list[str], list[str]]:
     if added:
         db.session.commit()
 
-    if verbose:
-        if added:
-            print(f"Schema migration added {len(added)} column(s):")
-            for label in added:
-                print("  +", label)
-        if skipped:
-            print(
-                f"Schema migration skipped {len(skipped)} NOT NULL column(s) "
-                "(needs a manual backfill):"
-            )
-            for label in skipped:
-                print("  !", label)
+    if added:
+        logger.info("[MIGRATE] Schema migration added %d column(s): %s", len(added), ", ".join(added))
+    if skipped:
+        logger.warning(
+            "[MIGRATE] Schema migration skipped %d NOT NULL column(s) (needs a manual backfill): %s",
+            len(skipped), ", ".join(skipped)
+        )
 
     return added, skipped

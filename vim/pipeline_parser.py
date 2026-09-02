@@ -9,6 +9,9 @@ Pipeline Monitor page.  No technical jargon is exposed to callers.
 import re
 from pathlib import Path
 from datetime import datetime
+from vim_logger import get_logger
+
+logger = get_logger("vim.pipeline_parser")
 
 _LOG_FILE = Path(__file__).resolve().parent.parent / "logs" / "vim.log"
 

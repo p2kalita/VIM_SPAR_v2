@@ -36,7 +36,6 @@ def run_validation(invoice_ids: list[int] | None = None):
 
     if not enriched_file.exists():
         logger.warning("[VALIDATION] enriched.json not found at %s — skipping", enriched_file)
-        print(f"WARNING: enriched.json not found at {enriched_file}. Skipping validation.")
         return False
 
     logger.info("[VALIDATION] Reading enriched.json from: %s", enriched_file)
@@ -83,7 +82,7 @@ def run_validation(invoice_ids: list[int] | None = None):
     for idx, invoice_data in enumerate(invoices):
 
         inv_num = invoice_data.get("invoice_number") or f"<unknown #{idx}>"
-        logger.info("─" * 50)
+        logger.info("-" * 50)
         logger.info(
             "[VALIDATION] Processing invoice %d/%d — number='%s', vendor='%s'",
             idx + 1, len(invoices), inv_num, invoice_data.get("vendor_name")
@@ -128,10 +127,6 @@ def run_validation(invoice_ids: list[int] | None = None):
                 "[VALIDATION] Invoice '%s' NOT FOUND in database — skipping DB save",
                 invoice_number
             )
-            print(
-                f"WARNING: Invoice not found in database: "
-                f"{invoice_number}"
-            )
             continue
 
         logger.debug("[VALIDATION] Matched DB invoice: InvoiceID=%s", invoice.InvoiceID)
@@ -150,7 +145,7 @@ def run_validation(invoice_ids: list[int] | None = None):
                 invoice.InvoiceID, e, exc_info=True
             )
 
-    logger.info("─" * 50)
+    logger.info("-" * 50)
     logger.info(
         "[VALIDATION] Run complete — %d/%d invoice(s) saved to DB",
         saved_count, len(invoices)

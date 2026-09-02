@@ -14,6 +14,9 @@ import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from vim_logger import get_logger
+
+logger = get_logger("vim.extraction.jobs")
 
 # Documents are processed a few at a time. Each one is mostly waiting on an
 # API, so this is about provider rate limits rather than local CPU.

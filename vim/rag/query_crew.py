@@ -138,17 +138,128 @@ def _build_conversation_context(messages: list[dict]) -> str:
     return "CONVERSATION HISTORY (for context):\n" + "\n".join(lines) + "\n\n"
 
 
+def stream_vllm_llm(
+    endpoint: str,
+    model_name: str,
+    messages: list[dict],
+    system_instruction: str,
+    user_query: str,
+    api_key: str = "EMPTY",
+    timeout: int = 60,
+) -> Generator[str, None, None]:
+    """
+    Stream tokens from a vLLM OpenAI-compatible server (e.g. Colab + Ngrok or local vLLM).
+    """
+    import json
+    import requests
+
+    # Normalize endpoint URL to chat/completions
+    base = endpoint.rstrip("/")
+    if base.endswith("/chat/completions"):
+        chat_url = base
+    elif base.endswith("/v1"):
+        chat_url = f"{base}/chat/completions"
+    else:
+        chat_url = f"{base}/v1/chat/completions"
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key or 'EMPTY'}",
+        "ngrok-skip-browser-warning": "true",  # Bypass Ngrok free tier browser warning
+    }
+
+    # Format multi-turn message history for OpenAI chat format
+    formatted_messages = [{"role": "system", "content": system_instruction}]
+
+    # Include recent prior conversation turns
+    history = messages[:-1][-_MAX_HISTORY_TURNS:] if len(messages) > 1 else []
+    for msg in history:
+        r = msg.get("role", "user")
+        c = msg.get("content", "").strip()
+        if c:
+            formatted_messages.append({"role": "assistant" if r == "assistant" else "user", "content": c})
+
+    formatted_messages.append({"role": "user", "content": user_query})
+
+    resolved_model = model_name or os.getenv("VLLM_MODEL", "/content/models/Qwen2.5-3B-Instruct")
+
+    payload = {
+        "model": resolved_model,
+        "messages": formatted_messages,
+        "stream": True,
+        "temperature": 0.2,
+        "max_tokens": 1500,
+    }
+
+    logger.info("[RAG-VLLM] Initiating streaming request to %s (model='%s', msgs=%d)",
+                chat_url, resolved_model, len(formatted_messages))
+
+    try:
+        # First attempt with resolved_model
+        response = requests.post(chat_url, json=payload, headers=headers, stream=True, timeout=timeout)
+        
+        # If model name mismatch (e.g. user typed 'Qwen2.5-3B-Instruct' but server has '/content/models/...'), auto-discover
+        if response.status_code == 404 or (response.status_code == 400 and 'does not exist' in response.text):
+            try:
+                models_url = chat_url.replace('/chat/completions', '/models')
+                m_resp = requests.get(models_url, headers=headers, timeout=5)
+                if m_resp.status_code == 200:
+                    m_data = m_resp.json().get('data', [])
+                    if m_data and 'id' in m_data[0]:
+                        auto_model = m_data[0]['id']
+                        logger.info("[RAG-VLLM] Auto-detected active server model: '%s'", auto_model)
+                        payload['model'] = auto_model
+                        response = requests.post(chat_url, json=payload, headers=headers, stream=True, timeout=timeout)
+            except Exception as disc_err:
+                logger.debug("[RAG-VLLM] Auto-model discovery skipped: %s", disc_err)
+
+        if response.status_code != 200:
+            err_text = response.text[:250]
+            logger.error("[RAG-VLLM] vLLM server returned HTTP %d: %s", response.status_code, err_text)
+            yield f"⚠️ vLLM server returned HTTP {response.status_code}: {err_text}"
+            return
+
+        for line in response.iter_lines(decode_unicode=True):
+            if not line:
+                continue
+            if line.startswith("data: "):
+                data_str = line[6:].strip()
+                if data_str == "[DONE]":
+                    break
+                try:
+                    chunk_json = json.loads(data_str)
+                    choices = chunk_json.get("choices", [])
+                    if choices:
+                        delta = choices[0].get("delta", {})
+                        token = delta.get("content")
+                        if token:
+                            yield token
+                except Exception as parse_err:
+                    logger.debug("[RAG-VLLM] JSON parse skip: %s", parse_err)
+
+    except requests.exceptions.ConnectionError as conn_err:
+        logger.error("[RAG-VLLM] Connection to vLLM server failed: %s", conn_err)
+        yield f"⚠️ Failed to connect to vLLM endpoint at `{chat_url}`. Please verify your Colab / Ngrok tunnel is active."
+    except Exception as e:
+        logger.error("[RAG-VLLM] Unexpected error during vLLM streaming: %s", e)
+        yield f"⚠️ vLLM stream error: {str(e)}"
+
+
 def stream_rag_chat(
     messages: list[dict],
     filter_doc_id: Optional[str] = None,
     writing_style: str = "default",
     citations: bool = False,
     custom_model: Optional[str] = None,
+    custom_endpoint: Optional[str] = None,
+    vllm_api_key: Optional[str] = None,
+    provider: Optional[str] = None,
 ) -> Generator[str, None, None]:
     """
     Stream SSE tokens for the AI Chat UI.
-    Retrieves context from ChromaDB and streams response via Gemini (or fallback).
+    Retrieves context from ChromaDB and streams response via vLLM (Colab/Ngrok) or Gemini.
     """
+    import os
     start_time = time.time()
 
     # Extract latest user message
@@ -158,8 +269,8 @@ def stream_rag_chat(
             user_query = msg.get("content", "").strip()
             break
 
-    logger.info("[RAG-CHAT] Incoming chat query: '%s' (history_msgs=%d, style='%s', citations=%s, filter_doc='%s')",
-                user_query[:120], len(messages), writing_style, citations, filter_doc_id)
+    logger.info("[RAG-CHAT] Incoming chat query: '%s' (history_msgs=%d, style='%s', citations=%s, filter_doc='%s', provider='%s')",
+                user_query[:120], len(messages), writing_style, citations, filter_doc_id, provider)
 
     if not user_query:
         logger.warning("[RAG-CHAT] Empty user query received.")
@@ -177,7 +288,7 @@ def stream_rag_chat(
 
     context_text = format_chunks_for_context(chunks)
 
-    # BUG 4 fix: Build conversation history for multi-turn context
+    # Build conversation history for multi-turn context
     conversation_context = _build_conversation_context(messages)
 
     # Style tone instruction
@@ -199,17 +310,74 @@ def stream_rag_chat(
         "If the information is not present in the context, inform the user clearly and politely.\n\n"
         f"{style_prompt}\n"
         f"{citation_prompt}\n\n"
-        f"{conversation_context}"
         f"RETRIEVED INVOICE CONTEXT:\n{context_text}\n"
     )
 
-    prompt = f"{system_instruction}\n\nUSER QUESTION:\n{user_query}"
+    # Determine LLM backend (vLLM vs Gemini)
+    vllm_url = custom_endpoint or os.getenv("VLLM_BASE_URL", "").strip()
+    effective_provider = provider or os.getenv("LLM_PROVIDER", "").strip().lower()
 
-    model_name = custom_model or GEMINI_MODEL or "gemini-2.5-flash"
+    use_vllm = False
+    is_gemini_model = custom_model.startswith("gemini-") if custom_model else False
+    if effective_provider in ("vllm", "openai") or (vllm_url and not is_gemini_model):
+        use_vllm = bool(vllm_url)
+    elif vllm_url and ("qwen" in (custom_model or "").lower() or "llama" in (custom_model or "").lower()):
+        use_vllm = True
+
+    # ── BRANCH 1: vLLM Streaming (Colab / Ngrok / OpenAI-compatible) ───────────
+    if use_vllm:
+        model_name = custom_model or os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-3B-Instruct")
+        api_key = vllm_api_key or os.getenv("VLLM_API_KEY", "EMPTY")
+        logger.info("[RAG-CHAT] Routing stream to vLLM at '%s' (model='%s')", vllm_url, model_name)
+
+        token_count = 0
+        try:
+            for token in stream_vllm_llm(
+                endpoint=vllm_url,
+                model_name=model_name,
+                messages=messages,
+                system_instruction=system_instruction,
+                user_query=user_query,
+                api_key=api_key,
+            ):
+                token_count += 1
+                clean_text = token.replace("\n", "\\n")
+                yield f"data: {clean_text}\n\n"
+
+            if citations and chunks:
+                cit_text = "\n\n---\n**📌 Citations & Sources:**\n"
+                for i, c in enumerate(chunks, 1):
+                    cit_text += f"- **Source {i}**: Invoice `{c.get('invoice_number', 'N/A')}` ({c.get('filename', 'Doc')}) [Match: {int((1-c.get('distance', 0))*100)}%]\n"
+                clean_cit = cit_text.replace("\n", "\\n")
+                yield f"data: {clean_cit}\n\n"
+
+            elapsed = time.time() - start_time
+            logger.info("[RAG-CHAT] vLLM stream completed in %.2fs (%d tokens)", elapsed, token_count)
+            yield "data: [DONE]\n\n"
+            return
+
+        except Exception as e:
+            logger.error("[RAG-CHAT] vLLM streaming failed: %s", e)
+            if chunks:
+                fallback_msg = (
+                    f"⚠️ *vLLM connection issue ({e}). Extracted invoice context:*\n\n"
+                )
+                for i, c in enumerate(chunks, 1):
+                    fallback_msg += f"**[{c.get('invoice_number')}]** ({c.get('filename')}):\n> {c.get('text')}\n\n"
+                clean_fb = fallback_msg.replace("\n", "\\n")
+                yield f"data: {clean_fb}\n\n"
+            else:
+                yield f"data: ⚠️ Error from vLLM server: {str(e)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+    # ── BRANCH 2: Google Gemini Streaming ──────────────────────────────────────
+    prompt = f"{system_instruction}\n\n{conversation_context}USER QUESTION:\n{user_query}"
+    model_name = custom_model or GEMINI_MODEL or "gemini-3.5-flash"
     if "/" in model_name:
         model_name = model_name.split("/")[-1]
     if not model_name.startswith("gemini-"):
-        model_name = "gemini-2.5-flash"
+        model_name = "gemini-3.5-flash"
 
     logger.info("[RAG-CHAT] Initiating Gemini stream with model='%s' (context_chars=%d, history_turns=%d)",
                 model_name, len(context_text), len(messages) - 1)
@@ -245,7 +413,6 @@ def stream_rag_chat(
 
     except Exception as e:
         logger.error("[RAG-CHAT] Gemini streaming error: %s", e)
-        # Fallback direct response from chunks if available
         if chunks:
             logger.info("[RAG-CHAT] Emitting direct chunk fallback due to LLM error.")
             fallback_msg = (

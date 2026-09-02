@@ -30,8 +30,12 @@ const modalOverlay    = document.getElementById('modal-overlay');
 const modalClose      = document.getElementById('modal-close');
 const saveSettings    = document.getElementById('save-settings');
 const apiUrlInput     = document.getElementById('api-url-input');
+const providerSelect  = document.getElementById('provider-select');
 const endpointInput   = document.getElementById('endpoint-input');
+const vllmKeyInput    = document.getElementById('vllm-key-input');
 const modelInput      = document.getElementById('model-input');
+const testVllmBtn     = document.getElementById('test-vllm-btn');
+const vllmTestResult  = document.getElementById('vllm-test-result');
 const toastContainer  = document.getElementById('toast-container');
 const docStatsPill    = document.getElementById('doc-stats-pill');
 
@@ -47,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupUpload();
   setupModal();
   setupNewThread();
+  setupTestVllm();
   probeBackend();
 });
 
@@ -88,9 +93,27 @@ setInterval(setGreeting, 30000);
 
 // ── Settings ───────────────────────────────────────────────────
 function loadSettings() {
-  if (apiUrlInput)   apiUrlInput.value   = localStorage.getItem('api_url')      || '';
-  if (endpointInput) endpointInput.value = localStorage.getItem('llm_endpoint') || '';
-  if (modelInput)    modelInput.value    = localStorage.getItem('model_name')   || 'gemini-2.5-flash';
+  if (apiUrlInput)    apiUrlInput.value    = localStorage.getItem('api_url')      || '';
+  if (providerSelect) providerSelect.value = localStorage.getItem('llm_provider') || 'gemini';
+  if (endpointInput)  endpointInput.value  = localStorage.getItem('llm_endpoint') || '';
+  if (vllmKeyInput)   vllmKeyInput.value   = localStorage.getItem('vllm_api_key') || '';
+  if (modelInput)     modelInput.value     = localStorage.getItem('model_name')   || 'gemini-3.5-flash';
+
+  toggleVllmFields();
+  providerSelect?.addEventListener('change', toggleVllmFields);
+}
+
+function toggleVllmFields() {
+  const isVllm = providerSelect?.value === 'vllm';
+  const vllmSec = document.getElementById('vllm-config-section');
+  if (vllmSec) {
+    vllmSec.style.opacity = isVllm ? '1' : '0.6';
+  }
+  if (isVllm && modelInput && (!modelInput.value || modelInput.value.startsWith('gemini-'))) {
+    modelInput.value = 'Qwen/Qwen2.5-3B-Instruct';
+  } else if (!isVllm && modelInput && modelInput.value.includes('Qwen')) {
+    modelInput.value = 'gemini-3.5-flash';
+  }
 }
 
 function getApiBase() {
@@ -102,13 +125,73 @@ function getApiBase() {
 if (saveSettings) {
   saveSettings.addEventListener('click', () => {
     const url      = apiUrlInput ? apiUrlInput.value.trim() : '';
+    const provider = providerSelect ? providerSelect.value : 'gemini';
     const endpoint = endpointInput ? endpointInput.value.trim() : '';
+    const key      = vllmKeyInput ? vllmKeyInput.value.trim() : '';
     const model    = modelInput ? modelInput.value.trim() : '';
+
     localStorage.setItem('api_url', url);
-    if (endpoint) localStorage.setItem('llm_endpoint', endpoint);
-    if (model)    localStorage.setItem('model_name', model);
+    localStorage.setItem('llm_provider', provider);
+    localStorage.setItem('llm_endpoint', endpoint);
+    localStorage.setItem('vllm_api_key', key);
+    if (model) localStorage.setItem('model_name', model);
+
+    if (modelNameDisplay) {
+      modelNameDisplay.textContent = model.includes('/') ? model.split('/').pop() : model;
+    }
+
     closeModal();
-    showToast('Settings saved successfully', 'success');
+    showToast('Settings saved successfully!', 'success');
+  });
+}
+
+// ── Test vLLM Connection ──────────────────────────────────────
+function setupTestVllm() {
+  if (!testVllmBtn) return;
+  testVllmBtn.addEventListener('click', async () => {
+    const endpoint = (endpointInput?.value || '').trim();
+    const key = (vllmKeyInput?.value || '').trim() || 'EMPTY';
+
+    if (!endpoint) {
+      if (vllmTestResult) {
+        vllmTestResult.style.color = '#dc2626';
+        vllmTestResult.textContent = '❌ Please enter an endpoint URL first.';
+      }
+      return;
+    }
+
+    testVllmBtn.disabled = true;
+    testVllmBtn.textContent = '⏳ Testing...';
+    if (vllmTestResult) {
+      vllmTestResult.style.color = '#64748b';
+      vllmTestResult.textContent = 'Connecting to Colab vLLM server...';
+    }
+
+    try {
+      const base = getApiBase();
+      const res = await fetch(`${base}/test-vllm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint, api_key: key }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        vllmTestResult.style.color = '#16a34a';
+        vllmTestResult.textContent = `✅ Online! (${(data.models && data.models[0]) || 'Model active'})`;
+        if (data.models && data.models.length > 0 && modelInput) {
+          modelInput.value = data.models[0];
+        }
+      } else {
+        vllmTestResult.style.color = '#dc2626';
+        vllmTestResult.textContent = `❌ ${data.error || 'Connection failed'}`;
+      }
+    } catch (err) {
+      vllmTestResult.style.color = '#dc2626';
+      vllmTestResult.textContent = `❌ ${err.message}`;
+    } finally {
+      testVllmBtn.disabled = false;
+      testVllmBtn.textContent = '⚡ Test vLLM Connection';
+    }
   });
 }
 
@@ -277,10 +360,13 @@ async function handleSubmit() {
   try {
     const body = {
       messages,
-      filter_doc_id:  activeDocId  || null,
-      writing_style:  writingStyle?.value  || 'default',
-      citations:      citationToggle?.checked || false,
-      model:          modelInput?.value || localStorage.getItem('model_name') || 'gemini-2.5-flash',
+      filter_doc_id:   activeDocId  || null,
+      writing_style:   writingStyle?.value  || 'default',
+      citations:       citationToggle?.checked || false,
+      model:           modelInput?.value || localStorage.getItem('model_name') || 'gemini-3.5-flash',
+      provider:        providerSelect?.value || localStorage.getItem('llm_provider') || 'gemini',
+      custom_endpoint: endpointInput?.value || localStorage.getItem('llm_endpoint') || '',
+      vllm_api_key:    vllmKeyInput?.value || localStorage.getItem('vllm_api_key') || '',
     };
 
     let base = getApiBase();

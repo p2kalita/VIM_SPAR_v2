@@ -66,7 +66,6 @@ def create_app():
             logger.info("db.create_all() succeeded")
         except Exception as e:
             logger.error("db.create_all() FAILED: %s", e)
-            print("create_all() FAILED:", e)
 
         # create_all() does not alter tables that already exist, so columns
         # added to the models later have to be applied to the existing file.
@@ -75,7 +74,7 @@ def create_app():
  
             sync_columns()
         except Exception as e:
-            print("schema migration FAILED:", e)
+            logger.error("schema migration FAILED: %s", e)
 
         # ---------------------------------------------
         # LOAD API KEYS
@@ -85,16 +84,9 @@ def create_app():
 
         if llama and groq:
             logger.info("API keys loaded from %s", extraction_config.ENV_PATH)
-            print(
-                "API keys loaded from",
-                extraction_config.ENV_PATH
-            )
         else:
             logger.warning("API keys MISSING — check %s", extraction_config.ENV_PATH)
-            print(
-                "WARNING: API keys missing. Check",
-                extraction_config.ENV_PATH
-            )
+            
     return app
 
 app = create_app()

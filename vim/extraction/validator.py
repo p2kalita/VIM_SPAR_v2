@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
- 
+
 from vim.extraction.field_aliases import promote_extra_fields
 from vim.extraction.schema import (
     HEADER_FIELDS,
@@ -14,6 +14,9 @@ from vim.extraction.schema import (
     empty_field_confidence,
     empty_line_item_confidence,
 )
+from vim_logger import get_logger
+
+logger = get_logger("vim.extraction.validator")
  
  
 _DATE_FORMATS = [

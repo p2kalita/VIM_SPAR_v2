@@ -1741,7 +1741,7 @@ def register_routes(app):
     @app.route('/chat', methods=['POST', 'OPTIONS'])
     @app.route('/admin/rag_chat', methods=['POST', 'OPTIONS'])
     def rag_chat_stream():
-        """SSE streaming endpoint for AI RAG Chatbot queries."""
+        """SSE streaming endpoint for AI RAG Chatbot queries (supports Gemini & vLLM/Colab)."""
         if request.method == 'OPTIONS':
             resp = make_response('', 204)
             resp.headers['Access-Control-Allow-Origin'] = '*'
@@ -1757,9 +1757,12 @@ def register_routes(app):
         writing_style = data.get('writing_style', 'default')
         citations = data.get('citations', False)
         custom_model = data.get('model')
+        custom_endpoint = data.get('custom_endpoint')
+        vllm_api_key = data.get('vllm_api_key')
+        provider = data.get('provider')
 
-        logger.info("[RAG-STREAM] Received chat SSE request (msgs=%d, style='%s', citations=%s, model='%s')",
-                    len(messages), writing_style, citations, custom_model)
+        logger.info("[RAG-STREAM] SSE request (msgs=%d, style='%s', citations=%s, model='%s', endpoint='%s', provider='%s')",
+                    len(messages), writing_style, citations, custom_model, custom_endpoint, provider)
 
         def generate():
             for chunk in stream_rag_chat(
@@ -1768,6 +1771,9 @@ def register_routes(app):
                 writing_style=writing_style,
                 citations=citations,
                 custom_model=custom_model,
+                custom_endpoint=custom_endpoint,
+                vllm_api_key=vllm_api_key,
+                provider=provider,
             ):
                 yield chunk
 
@@ -1783,10 +1789,78 @@ def register_routes(app):
             }
         )
 
+    @app.route('/test-vllm', methods=['POST', 'OPTIONS'])
+    @app.route('/admin/test-vllm', methods=['POST', 'OPTIONS'])
+    def test_vllm_connection():
+        """Test connectivity to a custom vLLM / Colab Ngrok endpoint."""
+        if request.method == 'OPTIONS':
+            resp = make_response('', 204)
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return resp
+
+        import requests
+        data = request.get_json(silent=True) or {}
+        endpoint = (data.get('endpoint') or '').strip().rstrip('/')
+        api_key = data.get('api_key') or 'EMPTY'
+
+        if not endpoint:
+            res = jsonify({'success': False, 'error': 'Endpoint URL cannot be empty.'})
+            res.headers['Access-Control-Allow-Origin'] = '*'
+            return res, 400
+
+        # Construct models probe URL
+        if endpoint.endswith('/v1'):
+            probe_url = f"{endpoint}/models"
+        elif '/v1/' in endpoint:
+            probe_url = endpoint.split('/v1/')[0] + '/v1/models'
+        else:
+            probe_url = f"{endpoint}/v1/models"
+
+        headers = {
+            'Authorization': f'Bearer {api_key}',
+            'ngrok-skip-browser-warning': 'true',
+        }
+
+        try:
+            logger.info("[VLLM-TEST] Probing vLLM endpoint: %s", probe_url)
+            resp = requests.get(probe_url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                body = resp.json()
+                models = [m.get('id') for m in body.get('data', [])] if isinstance(body.get('data'), list) else []
+                res = jsonify({
+                    'success': True,
+                    'status': 'online',
+                    'models': models,
+                    'message': f"Connected successfully! Found {len(models)} model(s)."
+                })
+            else:
+                res = jsonify({
+                    'success': False,
+                    'status': 'error',
+                    'error': f"HTTP {resp.status_code}: {resp.text[:150]}"
+                })
+        except requests.exceptions.ConnectionError:
+            res = jsonify({
+                'success': False,
+                'status': 'offline',
+                'error': 'Connection refused. Ensure the Colab vLLM server & Ngrok tunnel are running.'
+            })
+        except Exception as e:
+            res = jsonify({
+                'success': False,
+                'status': 'error',
+                'error': str(e)
+            })
+
+        res.headers['Access-Control-Allow-Origin'] = '*'
+        return res
+
     @app.route('/llm-info', methods=['GET', 'OPTIONS'])
     @app.route('/admin/llm-info', methods=['GET', 'OPTIONS'])
     def rag_llm_info():
-        """Returns model info and unified store statistics."""
+        """Returns model info, active backend provider, and unified store statistics."""
         if request.method == 'OPTIONS':
             resp = make_response('', 204)
             resp.headers['Access-Control-Allow-Origin'] = '*'
@@ -1797,14 +1871,23 @@ def register_routes(app):
         import os
         from vim.rag.store import get_store_stats
 
-        gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        provider = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
+        vllm_url = os.getenv("VLLM_BASE_URL", "").strip()
+        vllm_model = os.getenv("VLLM_MODEL", "Qwen/Qwen2.5-3B-Instruct")
+        gemini_model = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+
+        active_backend = "vllm" if provider == "vllm" or vllm_url else "gemini"
+        active_model = vllm_model if active_backend == "vllm" else gemini_model
+
         stats = get_store_stats()
-        logger.debug("[RAG-INFO] Probe requested: model='%s', total_chunks=%d",
-                     gemini_model, stats.get('total_chunks', 0))
+        logger.debug("[RAG-INFO] Probe requested: backend='%s', model='%s', total_chunks=%d",
+                     active_backend, active_model, stats.get('total_chunks', 0))
 
         res = jsonify({
-            "backend": "gemini",
-            "model": gemini_model,
+            "backend": active_backend,
+            "provider": provider,
+            "model": active_model,
+            "base_url": vllm_url,
             "stats": stats,
         })
         res.headers['Access-Control-Allow-Origin'] = '*'
@@ -1853,9 +1936,9 @@ def register_routes(app):
                 )
             )
         if status:
-            query = query.filter(ValidationResult.ValidationStatus == status)
+            query = query.filter(ValidationResult.ValidationStatus.ilike(status))
         if vtype:
-            query = query.filter(ValidationResult.ValidationType == vtype)
+            query = query.filter(ValidationResult.ValidationType.ilike(vtype))
         if time_range:
             time_map = {
                 '15m': timedelta(minutes=15),
@@ -1899,13 +1982,35 @@ def register_routes(app):
     @app.route('/api/validation/results/<int:validation_id>', methods=['GET'])
     @admin_required
     def api_validation_detail(validation_id):
-        """Return full detail for a single ValidationResult record."""
-        from vim_database.models import ValidationResult
+        """Return full detail for a single ValidationResult record along with linked invoice info."""
+        from vim_database.models import ValidationResult, Invoice
         from flask import jsonify as _jsonify
 
         r = db.session.get(ValidationResult, validation_id)
         if not r:
             return _jsonify({'error': 'Validation result not found'}), 404
+
+        inv = db.session.get(Invoice, r.InvoiceID) if r.InvoiceID else None
+        if not inv and r.InvoiceNumber:
+            inv = Invoice.query.filter_by(InvoiceNumber=r.InvoiceNumber).first()
+
+        vendor = inv.vendor if (inv and inv.vendor) else None
+        invoice_info = {
+            'invoice_id': inv.InvoiceID if inv else r.InvoiceID,
+            'invoice_number': inv.InvoiceNumber if inv else r.InvoiceNumber,
+            'vendor_id': inv.VendorID if inv else None,
+            'vendor_name': vendor.VendorName if vendor else None,
+            'po_number': inv.PONumber if inv else None,
+            'invoice_amount': float(inv.InvoiceAmount) if (inv and inv.InvoiceAmount is not None) else None,
+            'net_amount': float(inv.NetAmount) if (inv and inv.NetAmount is not None) else None,
+            'tax_amount': float(inv.TaxAmount) if (inv and inv.TaxAmount is not None) else None,
+            'due_date': inv.DueDate.isoformat() if (inv and inv.DueDate) else None,
+            'invoice_date': inv.InvoiceDate.isoformat() if (inv and inv.InvoiceDate) else None,
+            'payment_terms': inv.PaymentTerms if inv else None,
+        } if inv else {
+            'invoice_id': r.InvoiceID,
+            'invoice_number': r.InvoiceNumber,
+        }
 
         return _jsonify({
             'id':              r.ValidationID,
@@ -1916,7 +2021,176 @@ def register_routes(app):
             'message':         r.ValidationMessage,
             'details':         r.ValidationDetails,
             'validation_date': r.ValidationDate.isoformat() if r.ValidationDate else None,
+            'invoice_info':    invoice_info,
         })
+
+    @app.route('/api/validation/override/<int:validation_id>', methods=['POST'])
+    @admin_required
+    def api_validation_override(validation_id):
+        """Admin override / mark exception as resolved."""
+        from vim_database.models import ValidationResult
+        from flask import jsonify as _jsonify
+
+        r = db.session.get(ValidationResult, validation_id)
+        if not r:
+            return _jsonify({'error': 'Validation result not found'}), 404
+
+        data = request.get_json(silent=True) or {}
+        new_status = data.get('status', 'PASSED').upper()
+        note = (data.get('note') or '').strip()
+        admin_user = session.get('username', 'admin')
+        now_str = get_ist_now().strftime('%d-%b-%Y %H:%M IST')
+
+        details = dict(r.ValidationDetails or {})
+        details['admin_override'] = {
+            'overridden_by': admin_user,
+            'overridden_at': now_str,
+            'previous_status': r.ValidationStatus,
+            'note': note or 'Admin marked exception as resolved'
+        }
+
+        r.ValidationStatus = new_status
+        r.ValidationDetails = details
+        if note:
+            r.ValidationMessage = f"[RESOLVED by {admin_user}]: {note}"
+        else:
+            r.ValidationMessage = f"[RESOLVED by {admin_user} on {now_str}]"
+
+        db.session.commit()
+        logger.info("[OVERRIDE] ValidationID=%d overridden to status='%s' by user='%s'",
+                    validation_id, new_status, admin_user)
+
+        return _jsonify({
+            'success': True,
+            'id': r.ValidationID,
+            'status': r.ValidationStatus,
+            'message': r.ValidationMessage,
+            'details': r.ValidationDetails,
+        })
+
+    @app.route('/api/validation/edit_invoice/<int:invoice_id>', methods=['POST'])
+    @admin_required
+    def api_validation_edit_invoice(invoice_id):
+        """Manual edit/entry of extracted invoice fields and sync back to database and enriched.json."""
+        from vim_database.models import Invoice, ValidationResult
+        from vim.extraction.json_store import load_all, save_all
+        from datetime import datetime
+        from flask import jsonify as _jsonify
+
+        inv = db.session.get(Invoice, invoice_id)
+        if not inv:
+            return _jsonify({'error': 'Invoice not found'}), 404
+
+        data = request.get_json(silent=True) or {}
+
+        if 'invoice_number' in data and data['invoice_number']:
+            inv.InvoiceNumber = str(data['invoice_number']).strip()
+            ValidationResult.query.filter_by(InvoiceID=invoice_id).update({
+                'InvoiceNumber': inv.InvoiceNumber
+            })
+
+        if 'invoice_amount' in data and data['invoice_amount'] is not None:
+            try:
+                inv.InvoiceAmount = float(data['invoice_amount'])
+            except (ValueError, TypeError):
+                pass
+
+        if 'net_amount' in data and data['net_amount'] is not None:
+            try:
+                inv.NetAmount = float(data['net_amount'])
+            except (ValueError, TypeError):
+                pass
+
+        if 'tax_amount' in data and data['tax_amount'] is not None:
+            try:
+                inv.TaxAmount = float(data['tax_amount'])
+            except (ValueError, TypeError):
+                pass
+
+        if 'due_date' in data and data['due_date']:
+            try:
+                inv.DueDate = datetime.strptime(data['due_date'], '%Y-%m-%d').date()
+            except Exception:
+                pass
+
+        if 'payment_terms' in data:
+            inv.PaymentTerms = str(data['payment_terms']).strip()
+
+        if 'po_number' in data and data['po_number']:
+            inv.PONumber = str(data['po_number']).strip()
+
+        db.session.commit()
+
+        # Sync back to enriched.json for re-validation consistency
+        records = load_all()
+        updated_in_json = False
+        for rec in records:
+            if rec.get('invoice_id') == invoice_id or rec.get('invoice_number') == inv.InvoiceNumber:
+                if 'invoice_number' in data and data['invoice_number']:
+                    rec['invoice_number'] = inv.InvoiceNumber
+                if 'invoice_amount' in data and data['invoice_amount'] is not None:
+                    rec['invoice_amount'] = float(data['invoice_amount'])
+                    rec['total_amount'] = float(data['invoice_amount'])
+                if 'net_amount' in data and data['net_amount'] is not None:
+                    rec['net_amount'] = float(data['net_amount'])
+                if 'tax_amount' in data and data['tax_amount'] is not None:
+                    rec['tax_amount'] = float(data['tax_amount'])
+                if 'due_date' in data and data['due_date']:
+                    rec['due_date'] = str(data['due_date'])
+                if 'payment_terms' in data:
+                    rec['payment_terms'] = str(data['payment_terms'])
+                updated_in_json = True
+                break
+
+        if updated_in_json:
+            save_all(records)
+
+        logger.info("[MANUAL-EDIT] InvoiceID=%d manually updated by user='%s'",
+                    invoice_id, session.get('username', 'admin'))
+
+        return _jsonify({
+            'success': True,
+            'message': 'Invoice fields successfully updated.',
+            'invoice_id': inv.InvoiceID,
+            'invoice_number': inv.InvoiceNumber,
+            'invoice_amount': float(inv.InvoiceAmount) if inv.InvoiceAmount is not None else None,
+            'net_amount': float(inv.NetAmount) if inv.NetAmount is not None else None,
+            'tax_amount': float(inv.TaxAmount) if inv.TaxAmount is not None else None,
+            'due_date': inv.DueDate.isoformat() if inv.DueDate else None,
+        })
+
+    @app.route('/api/validation/rerun/<int:invoice_id>', methods=['POST'])
+    @admin_required
+    def api_validation_rerun(invoice_id):
+        """Re-run validation pipeline for a specific invoice."""
+        from vim.validation_setup.validation.run_validation import run_validation
+        from vim_database.models import ValidationResult
+        from flask import jsonify as _jsonify
+
+        logger.info("[RERUN] Triggering validation re-run for InvoiceID=%d", invoice_id)
+        try:
+            success = run_validation(invoice_ids=[invoice_id])
+            results = ValidationResult.query.filter_by(InvoiceID=invoice_id).all()
+            items = []
+            for r in results:
+                items.append({
+                    'id': r.ValidationID,
+                    'invoice_id': r.InvoiceID,
+                    'invoice_number': r.InvoiceNumber,
+                    'validation_type': r.ValidationType,
+                    'status': r.ValidationStatus,
+                    'message': r.ValidationMessage,
+                    'details': r.ValidationDetails,
+                    'validation_date': r.ValidationDate.isoformat() if r.ValidationDate else None,
+                })
+            return _jsonify({
+                'success': True,
+                'message': f'Validation re-run complete for Invoice #{invoice_id}.',
+                'items': items,
+            })
+        except Exception as e:
+            logger.error("[RERUN] Error re-running validation for InvoiceID=%d: %s", invoice_id, e, exc_info=True)
+            return _jsonify({'success': False, 'error': str(e)}), 500
 
     @app.route('/api/validation/facets', methods=['GET'])
     @admin_required

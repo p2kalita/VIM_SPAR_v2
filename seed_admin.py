@@ -3,10 +3,13 @@
 import argparse
 
 from werkzeug.security import generate_password_hash
+from vim_logger import get_logger
 
 from app import create_app
 from vim_database.database import db
 from vim_database.models import User, Vendor
+
+logger = get_logger("vim.seed")
 
 def seed(fresh: bool = False):
     app = create_app()
@@ -14,7 +17,7 @@ def seed(fresh: bool = False):
         if fresh:
             db.drop_all()
             db.create_all()
-            print("Database recreated with current schema.")
+            logger.info("[SEED] Database recreated with current schema.")
 
         vendor = Vendor.query.filter_by(VendorName="Default Vendor").first()
         if not vendor:
@@ -26,6 +29,7 @@ def seed(fresh: bool = False):
             )
             db.session.add(vendor)
             db.session.flush()
+            logger.info("[SEED] Created default vendor: %s", vendor.VendorName)
 
         admin = User.query.filter_by(Email="admin@vim.local").first()
         if not admin:
@@ -38,8 +42,10 @@ def seed(fresh: bool = False):
                 IsActive=True,
             )
             db.session.add(admin)
+            logger.info("[SEED] Created default admin user: %s", admin.Username)
 
         db.session.commit()
+        logger.info("[SEED] Seed complete — login: admin@vim.local / admin123")
         print("Seed complete.")
         print("  Login: admin@vim.local / admin123")
 

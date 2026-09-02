@@ -13,6 +13,9 @@ from xml.etree import ElementTree as ET
 from types import SimpleNamespace
  
 from vim.extraction import config
+from vim_logger import get_logger
+ 
+logger = get_logger("vim.extraction.parser")
  
 # Below this many letters, a PDF is almost certainly a scan, not digital text.
 _MIN_DIGITAL_LETTERS = 80
@@ -24,6 +27,7 @@ _DOCX_NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
 def parse_single_file(file_path: str, **overrides) -> list:
     path = Path(file_path)
     if not path.exists():
+        logger.error("[PARSER] File not found: %s", path.resolve())
         raise FileNotFoundError(f"File not found: {path.resolve()}")
  
     verbose = overrides.get("verbose", True)
@@ -32,15 +36,13 @@ def parse_single_file(file_path: str, **overrides) -> list:
     local_text, source = _try_local(path)
     if local_text:
         elapsed = time.perf_counter() - started
-        if verbose:
-            print(
-                f"Parsed {path.name} locally via {source} "
-                f"({len(local_text)} chars, {elapsed:.1f}s)"
-            )
+        logger.info(
+            "[PARSER] Parsed %s locally via %s (%d chars, %.2fs)",
+            path.name, source, len(local_text), elapsed
+        )
         return [SimpleNamespace(text=local_text)]
  
-    if verbose:
-        print(f"Parsing {path.name} via LlamaParse (no local text)...")
+    logger.info("[PARSER] Parsing %s via LlamaParse (no local text)...", path.name)
  
     from llama_parse import LlamaParse
  
@@ -54,12 +56,11 @@ def parse_single_file(file_path: str, **overrides) -> list:
         num_workers=overrides.get("num_workers", config.NUM_WORKERS),
     )
     documents = parser.load_data(str(path))
-    if verbose:
-        elapsed = time.perf_counter() - started
-        print(
-            f"LlamaParse finished {path.name} — "
-            f"{len(documents)} document(s) in {elapsed:.1f}s"
-        )
+    elapsed = time.perf_counter() - started
+    logger.info(
+        "[PARSER] LlamaParse finished %s — %d document(s) in %.2fs",
+        path.name, len(documents), elapsed
+    )
     return documents
  
  
@@ -77,7 +78,7 @@ def _try_local(path: Path) -> tuple[str | None, str | None]:
             text = _read_xlsx(path)
             return (text, "openpyxl") if text else (None, None)
     except Exception as e:
-        print(f"Local parse of {path.name} failed ({e}); falling back to LlamaParse")
+        logger.warning("[PARSER] Local parse of %s failed (%s); falling back to LlamaParse", path.name, e)
         return None, None
     return None, None
  

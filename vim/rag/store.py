@@ -17,7 +17,7 @@ load_dotenv(_ROOT / ".env")
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", str(_ROOT / "chroma_db"))
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "invoices_rag")
 EMBED_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-small-en-v1.5")

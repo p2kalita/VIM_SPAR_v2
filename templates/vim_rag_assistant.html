@@ -36,7 +36,7 @@
       <!-- Settings -->
       <button class="btn-text-hdr" id="settings-btn" aria-label="Open settings">⚙️ Settings</button>
       <!-- New Thread -->
-      <button class="btn-primary-hdr" id="new-thread-btn" aria-label="Start new thread">+ New Thread</button>
+      <!-- <button class="btn-primary-hdr" id="new-thread-btn" aria-label="Start new thread">+ New Thread</button> -->
     </div>
   </header>
 
@@ -149,29 +149,29 @@
               Attach Invoices
             </button>
             <!-- Writing styles -->
-            <select id="writing-style" class="ctrl-select" aria-label="Writing style">
+            <!-- <select id="writing-style" class="ctrl-select" aria-label="Writing style">
               <option value="default">Writing Style: Default</option>
               <option value="formal">Formal &amp; Concise</option>
               <option value="casual">Casual &amp; Conversational</option>
               <option value="creative">Detailed Analysis</option>
-            </select>
+            </select> -->
           </div>
 
           <div class="controls-right">
             <!-- Citation toggle -->
-            <label class="citation-label" for="citation-toggle">
+            <!-- <label class="citation-label" for="citation-toggle">
               <input type="checkbox" id="citation-toggle" checked />
               <span class="citation-text">Include Citations</span>
-            </label>
+            </label> -->
             <!-- Quick action settings -->
-            <button type="button" class="ctrl-icon-btn" id="settings-btn-ctrl" aria-label="Settings" title="Settings">
+            <!-- <button type="button" class="ctrl-icon-btn" id="settings-btn-ctrl" aria-label="Settings" title="Settings">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-            </button>
+            </button> -->
           </div>
         </div>
       </form>
@@ -208,27 +208,52 @@
       </div>
 
       <div class="form-group">
-        <label for="api-url-input">Backend API Base URL (leave blank for local VIM host)</label>
-        <input type="text" id="api-url-input" class="form-control" placeholder="Default: relative host" />
-        <p class="hint">Keep blank when accessing inside the VIM application.</p>
-      </div>
-
-      <div class="modal-divider"></div>
-      <div class="modal-divider-label">
-        <span>LLM Configuration</span>
-        <span id="vllm-status-badge" class="vllm-badge vllm-badge--checking">checking…</span>
+        <label for="provider-select">LLM Provider</label>
+        <select id="provider-select" class="form-control">
+          <option value="gemini">Google Gemini (Cloud API)</option>
+          <option value="vllm">vLLM (Colab / Ngrok / Local Server)</option>
+        </select>
+        <p class="hint">Switch between Gemini and your custom self-hosted vLLM instance.</p>
       </div>
 
       <div class="form-group">
         <label for="model-input">Model Name</label>
-        <input type="text" id="model-input" class="form-control" placeholder="gemini-2.5-flash" />
-        <p class="hint">e.g. gemini-2.5-flash, gemini-1.5-pro, or Qwen2.5-3B-Instruct</p>
+        <input type="text" id="model-input" class="form-control"
+          placeholder="gemini-3.5-flash or Qwen/Qwen2.5-3B-Instruct" />
+        <p class="hint">e.g. <code>gemini-3.5-flash</code>, <code>Qwen/Qwen2.5-3B-Instruct</code>,
+          <code>Qwen2.5-3B-Instruct</code>
+        </p>
       </div>
 
+      <div id="vllm-config-section">
+        <div class="form-group">
+          <label for="endpoint-input">vLLM / Colab Ngrok Base URL</label>
+          <input type="url" id="endpoint-input" class="form-control" placeholder="https://xxxx.ngrok-free.app/v1" />
+          <p class="hint">Paste the Ngrok public URL from your Colab notebook (e.g.
+            <code>https://xxxx.ngrok-free.app/v1</code> or <code>http://localhost:8000/v1</code>).
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label for="vllm-key-input">vLLM API Key <em>(optional)</em></label>
+          <input type="password" id="vllm-key-input" class="form-control" placeholder="EMPTY" />
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 16px;">
+          <button type="button" id="test-vllm-btn" class="ctrl-btn"
+            style="padding: 7px 14px; font-weight:600; font-size:12.5px;">
+            ⚡ Test vLLM Connection
+          </button>
+          <span id="vllm-test-result" style="font-size:12px; font-weight:500;"></span>
+        </div>
+      </div>
+
+      <div class="modal-divider"></div>
+
       <div class="form-group">
-        <label for="endpoint-input">Optional Custom OpenAI/vLLM Base URL</label>
-        <input type="url" id="endpoint-input" class="form-control" placeholder="https://xxxx.ngrok-free.dev/v1" />
-        <p class="hint">Optional: paste local vLLM or Ollama endpoint.</p>
+        <label for="api-url-input">Backend API Base URL <em>(leave blank for default)</em></label>
+        <input type="text" id="api-url-input" class="form-control" placeholder="Default: relative host" />
+        <p class="hint">Keep blank when accessing inside the VIM application.</p>
       </div>
 
       <button class="btn-save" id="save-settings">Save Settings</button>
