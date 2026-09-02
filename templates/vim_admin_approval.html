@@ -99,14 +99,17 @@
 
         <form method="POST">
 
-            <label>Invoice ID</label>
+            <label>Invoice</label>
 
-            <input
-                type="number"
-                name="invoice_id"
-                placeholder="Enter Invoice ID"
-                required
-            >
+            <select name="invoice_id" required>
+                <option value="">-- Select invoice file --</option>
+                {% for inv in invoice_choices|default([]) %}
+                    <option value="{{ inv.id }}">{{ inv.label }}</option>
+                {% endfor %}
+            </select>
+            {% if invoice_choices is defined and invoice_choices|length == 0 %}
+            <p style="color:#666; font-size:0.9em; margin-top:8px;">No invoices available to assign.</p>
+            {% endif %}
 
             <label>Select Approver</label>
 
