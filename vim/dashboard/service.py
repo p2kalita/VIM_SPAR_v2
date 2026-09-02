@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+from vim.timezone import get_ist_now
 
 from sqlalchemy import func
 
@@ -31,7 +32,7 @@ def _distinct_invoice_count(query_filter):
 
 
 def get_dashboard_metrics():
-    now = datetime.utcnow()
+    now = get_ist_now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     week_start = now - timedelta(days=7)
 
@@ -155,7 +156,7 @@ def get_dashboard_metrics():
     }
 
     return {
-        "generated_at": now.strftime("%d-%b-%Y %H:%M UTC"),
+        "generated_at": now.strftime("%d-%b-%Y %H:%M IST"),
         "kpis": {
             "total_invoices": total_invoices,
             "invoices_failed_validation": invoices_failed_validation,

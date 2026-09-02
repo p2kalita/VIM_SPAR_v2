@@ -2,6 +2,7 @@
 vim_logger.py
 ─────────────────────────────────────────────────────────────────────────────
 Central logging configuration for the Vendor Invoice Management system.
+Timestamps formatted in Indian Standard Time (IST, UTC+05:30).
 
 Usage in any module:
     from vim_logger import get_logger
@@ -15,8 +16,23 @@ File:      always on (DEBUG+) — full detail including LLM calls
 
 import logging
 import sys
+from datetime import datetime, timezone, timedelta
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+# Indian Standard Time (IST)
+_IST = timezone(timedelta(hours=5, minutes=30))
+
+
+class ISTFormatter(logging.Formatter):
+    """Custom logging formatter outputting timestamps in Indian Standard Time (IST)."""
+
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, _IST)
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 _PROJECT_ROOT = Path(__file__).resolve().parent
@@ -50,7 +66,7 @@ def _setup() -> None:
     # ── Console handler (INFO+) ─────────────────────────────────────────────
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.INFO)
-    ch.setFormatter(logging.Formatter(_FMT_CONSOLE, datefmt=_DATE_FMT))
+    ch.setFormatter(ISTFormatter(_FMT_CONSOLE, datefmt=_DATE_FMT))
     root.addHandler(ch)
 
     # ── Rotating file handler (DEBUG+) ──────────────────────────────────────
@@ -61,7 +77,7 @@ def _setup() -> None:
         encoding="utf-8",
     )
     fh.setLevel(logging.DEBUG)
-    fh.setFormatter(logging.Formatter(_FMT_FILE, datefmt=_DATE_FMT))
+    fh.setFormatter(ISTFormatter(_FMT_FILE, datefmt=_DATE_FMT))
     root.addHandler(fh)
 
     root.propagate = False

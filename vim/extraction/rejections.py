@@ -1,7 +1,8 @@
 """Persist rejected uploads (not-an-invoice, unknown vendor) for later review."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from vim.timezone import get_ist_now
 
 from vim_database.database import db
 from vim_database.models import RejectedDocument
@@ -87,7 +88,7 @@ def mark_decision(stored_file_name: str, decision: str, user_id=None) -> Rejecte
         logger.debug("[REJECT] No rejection row found for '%s'", stored_file_name)
         return None
     row.Decision = decision
-    row.DecidedDate = datetime.now(timezone.utc)
+    row.DecidedDate = get_ist_now()
     row.DecidedByUserID = user_id
     db.session.commit()
     logger.debug("[REJECT] Decision saved for '%s'", stored_file_name)

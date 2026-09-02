@@ -1,5 +1,6 @@
 from datetime import datetime
 from vim_database.database import db
+from vim.timezone import get_ist_now
 # -------------------------------
 # USER MODEL
 # -------------------------------
@@ -19,7 +20,7 @@ class User(db.Model):
     )
  
     IsActive = db.Column(db.Boolean, nullable=False)
-    CreatedDate = db.Column(db.DateTime, default=datetime.utcnow)
+    CreatedDate = db.Column(db.DateTime, default=get_ist_now)
  
     # Relationship
     vendor = db.relationship("Vendor", back_populates="users")
@@ -233,7 +234,7 @@ class InvoiceDocument(db.Model):
  
     FileName = db.Column(db.String(255), nullable=False)
     FileType = db.Column(db.String(20), nullable=False)
-    UploadDate = db.Column(db.DateTime, default=datetime.utcnow)
+    UploadDate = db.Column(db.DateTime, default=get_ist_now)
     StoragePath = db.Column(db.String(500), nullable=False)
  
     # Relationship
@@ -332,7 +333,7 @@ class ValidationResult(db.Model):
     ValidationStatus = db.Column(db.String(30),nullable=False)
     ValidationMessage = db.Column(db.String(255))
     ValidationDetails = db.Column(db.JSON,nullable=True)
-    ValidationDate = db.Column(db.DateTime,default=datetime.utcnow)
+    ValidationDate = db.Column(db.DateTime,default=get_ist_now)
     invoice = db.relationship("Invoice", back_populates="validations")
     StageStatus = db.Column(db.String(20),nullable=True,default="started")
  
@@ -355,7 +356,7 @@ class FraudCheck(db.Model):
  
     DuplicateFlag = db.Column(db.Boolean, nullable=False)
     RiskScore = db.Column(db.Numeric(5, 2), nullable=False)
-    CheckDate = db.Column(db.DateTime, default=datetime.utcnow)
+    CheckDate = db.Column(db.DateTime, default=get_ist_now)
  
     # Relationship
     invoice = db.relationship(
@@ -424,7 +425,7 @@ class Payment(db.Model):
         nullable=False
     )
  
-    PaymentDate = db.Column(db.DateTime, default=datetime.utcnow)
+    PaymentDate = db.Column(db.DateTime, default=get_ist_now)
     PaymentAmount = db.Column(db.Numeric(12, 2), nullable=False)
     PaymentMethod = db.Column(db.String(50), nullable=False)
     PaymentReference = db.Column(db.String(100))
@@ -457,7 +458,7 @@ class WorkflowHistory(db.Model):
     PreviousStatus = db.Column(db.String(30))
     CurrentStatus = db.Column(db.String(30), nullable=False)
     ActionBy = db.Column(db.Integer, nullable=False)
-    ActionDate = db.Column(db.DateTime, default=datetime.utcnow)
+    ActionDate = db.Column(db.DateTime, default=get_ist_now)
  
     # Relationship
     invoice = db.relationship(
@@ -486,7 +487,7 @@ class AuditLog(db.Model):
  
     UserID = db.Column(db.Integer, nullable=False)
     ActionType = db.Column(db.String(50), nullable=False)
-    ActionTimestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    ActionTimestamp = db.Column(db.DateTime, default=get_ist_now)
     Comments = db.Column(db.String(255))
  
     # Relationship
@@ -515,7 +516,7 @@ class ExceptionCase(db.Model):
     ExceptionType = db.Column(db.String(50), nullable=False)
     Description = db.Column(db.String(255))
     Status = db.Column(db.String(30), nullable=False)
-    CreatedDate = db.Column(db.DateTime, default=datetime.utcnow)
+    CreatedDate = db.Column(db.DateTime, default=get_ist_now)
  
     # Relationship
     invoice = db.relationship(
@@ -620,7 +621,7 @@ class RejectedDocument(db.Model):
     ExtractedJson = db.Column(db.JSON)
     RawTextPreview = db.Column(db.Text)
  
-    CreatedDate = db.Column(db.DateTime, default=datetime.utcnow)
+    CreatedDate = db.Column(db.DateTime, default=get_ist_now)
     DecidedDate = db.Column(db.DateTime)
     DecidedByUserID = db.Column(db.Integer)
  

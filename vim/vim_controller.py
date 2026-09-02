@@ -3,8 +3,9 @@ import mimetypes
 import time
 from pathlib import Path
 from datetime import datetime
+from vim.timezone import get_ist_now
 
-from flask import app, render_template, redirect, request, url_for, flash, session, Response
+from flask import app, render_template, redirect, request, url_for, flash, session, Response, jsonify, make_response
 from werkzeug.security import check_password_hash, generate_password_hash
 from yaml import load_all
 from vim_database.models import User, Vendor, ValidationResult, RejectedDocument, Approval
@@ -328,7 +329,7 @@ def register_routes(app):
                 InvoiceID=invoice_id,
                 ApproverUserID=approver.UserID,
                 ApprovalStatus='Pending',
-                ApprovalDate=datetime.now()
+                ApprovalDate=get_ist_now()
             )
  
             db.session.add(approval)
@@ -389,7 +390,7 @@ def register_routes(app):
            return redirect(url_for('approver_approvals'))
  
         approval.ApprovalStatus = decision
-        approval.ApprovalDate = datetime.now()
+        approval.ApprovalDate = get_ist_now()
  
         db.session.commit()
  
@@ -1553,157 +1554,212 @@ def register_routes(app):
 
 
     # ─────────────────────────────────────────────────────────────────────────────
-    # RAG — AI Assistant  (ChromaDB + CrewAI + Gemini)
+    # RAG — AI Assistant  (Single Unified Vector Store + Gemini RAG Chatbot)
     # ─────────────────────────────────────────────────────────────────────────────
 
     @app.route('/admin/ai_assistant', methods=['GET'])
-    @admin_required
+    @app.route('/ai_assistant', methods=['GET'])
     def admin_ai_assistant():
-        """Landing page: vendor selector + per-vendor RAG stats."""
-        from vim.rag.store import get_vendor_data
-        vendors = Vendor.query.order_by(Vendor.VendorName).all()
+        """Single UI AI RAG Chatbot interface with dynamic IST greeting."""
+        now = get_ist_now()
+        h = now.hour
+        if 4 <= h < 12:
+            period = "morning"
+        elif 12 <= h < 17:
+            period = "afternoon"
+        else:
+            period = "evening"
+        greeting = f"Good {period}, Partha"
+        logger.info("[RAG-WEB] Loaded AI Assistant page (greeting='%s')", greeting)
+        return render_template('vim_rag_assistant.html', greeting=greeting)
 
-        vendor_id = request.args.get('vendor_id', '').strip().lower().replace(' ', '_')
-        data = None
-        selected_vendor = None
-        if vendor_id:
-            try:
-                data = get_vendor_data(vendor_id)
-            except Exception as e:
-                flash(f"RAG store error: {e}", "danger")
-            selected_vendor = vendor_id
+    @app.route('/upload', methods=['POST', 'OPTIONS'])
+    @app.route('/admin/rag_upload', methods=['POST', 'OPTIONS'])
+    def rag_multi_upload():
+        """Batch upload multiple invoice files (PDF, TXT, JPG, PNG) into the unified vector store."""
+        if request.method == 'OPTIONS':
+            resp = make_response('', 204)
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return resp
 
-        return render_template(
-            'vim_rag_assistant.html',
-            vendors=vendors,
-            selected_vendor=selected_vendor,
-            data=data,
-        )
-
-    @app.route('/admin/rag_ingest', methods=['POST'])
-    @admin_required
-    def admin_rag_ingest():
-        """Ingest PDF/TXT invoice files or pasted text into ChromaDB."""
         import io as _io
         from pathlib import Path as _Path
         from vim.rag.store import ingest_invoice
 
-        vendor_id = request.form.get('vendor_id', '').strip().lower().replace(' ', '_')
-        invoice_number = request.form.get('invoice_number', '').strip()
-        raw_text = request.form.get('raw_text', '').strip()
-        files = request.files.getlist('invoice_files')
-        results = []
+        files = request.files.getlist('files') or request.files.getlist('invoice_files')
+        if not files or all(not f.filename for f in files):
+            logger.warning("[RAG-UPLOAD] Upload request with no valid files.")
+            res = jsonify({"success": False, "error": "No files provided", "ingested": [], "errors": []})
+            res.headers['Access-Control-Allow-Origin'] = '*'
+            return res, 400
 
-        if files:
-            for f in files:
-                if not f.filename:
-                    continue
-                stem = _Path(f.filename).stem
-                inv_num = invoice_number if invoice_number else stem
-                content = f.read()
+        logger.info("[RAG-UPLOAD] Processing batch upload of %d file(s)", len(files))
+        ingested = []
+        errors = []
 
-                text = ""
-                if f.filename.lower().endswith('.pdf'):
-                    try:
-                        from pypdf import PdfReader
-                        reader = PdfReader(_io.BytesIO(content))
-                        text = "\n".join(page.extract_text() or "" for page in reader.pages)
-                    except Exception as e:
-                        results.append(f"❌ <b>{f.filename}</b>: PDF extraction error — {e}")
-                        continue
-                elif f.filename.lower().endswith('.txt'):
+        for f in files:
+            if not f.filename:
+                continue
+
+            fname = f.filename
+            stem = _Path(fname).stem
+            content = f.read()
+            text = ""
+
+            try:
+                if fname.lower().endswith('.pdf'):
+                    from pypdf import PdfReader
+                    reader = PdfReader(_io.BytesIO(content))
+                    text = "\n".join(page.extract_text() or "" for page in reader.pages)
+                    logger.debug("[RAG-UPLOAD] Extracted %d chars from PDF '%s'", len(text), fname)
+                elif fname.lower().endswith('.txt'):
                     text = content.decode('utf-8', errors='replace')
+                    logger.debug("[RAG-UPLOAD] Decoded %d chars from TXT '%s'", len(text), fname)
+                elif any(fname.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.tiff', '.tif', '.bmp', '.webp']):
+                    # Use Gemini Vision to extract actual text from scanned invoice images
+                    try:
+                        import google.generativeai as _genai
+                        from PIL import Image as _Image
+                        _gemini_key = os.environ.get("GEMINI_API_KEY", "")
+                        if _gemini_key:
+                            _genai.configure(api_key=_gemini_key)
+                            img = _Image.open(_io.BytesIO(content))
+                            vision_model = _genai.GenerativeModel("gemini-2.0-flash")
+                            ocr_response = vision_model.generate_content(
+                                [
+                                    "Extract ALL text from this scanned invoice image. "
+                                    "Include every field: invoice number, date, vendor name, line items, "
+                                    "amounts, tax, total, payment terms, bank details, and any other text. "
+                                    "Return only the extracted text, no commentary.",
+                                    img,
+                                ],
+                            )
+                            text = ocr_response.text.strip() if ocr_response.text else ""
+                            logger.info("[RAG-UPLOAD] Gemini Vision OCR extracted %d chars from image '%s'", len(text), fname)
+                        else:
+                            text = f"Scanned Invoice Document: {fname} (OCR unavailable — GEMINI_API_KEY not set)"
+                            logger.warning("[RAG-UPLOAD] No GEMINI_API_KEY for Vision OCR on '%s'", fname)
+                    except Exception as ocr_err:
+                        logger.warning("[RAG-UPLOAD] Gemini Vision OCR failed for '%s': %s, using fallback", fname, ocr_err)
+                        try:
+                            from PIL import Image as _Image2
+                            img2 = _Image2.open(_io.BytesIO(content))
+                            text = f"Scanned Invoice Image: {fname} (Resolution: {img2.size[0]}x{img2.size[1]}, OCR failed)"
+                        except Exception:
+                            text = f"Scanned Invoice Document: {fname}"
                 else:
-                    results.append(f"❌ <b>{f.filename}</b>: Unsupported format (use PDF or TXT).")
+                    err_msg = "Unsupported file format. Please upload PDF, TXT, or images."
+                    logger.warning("[RAG-UPLOAD] %s: %s", fname, err_msg)
+                    errors.append({"filename": fname, "error": err_msg})
                     continue
 
                 if not text.strip():
-                    results.append(f"❌ <b>{f.filename}</b>: File was empty.")
+                    err_msg = "File was empty or no text could be extracted."
+                    logger.warning("[RAG-UPLOAD] %s: %s", fname, err_msg)
+                    errors.append({"filename": fname, "error": err_msg})
                     continue
 
-                try:
-                    chunks = ingest_invoice(tenant_id=vendor_id, invoice_number=inv_num, text=text)
-                    results.append(
-                        f"✅ <b>{f.filename}</b> (Invoice: <code>{inv_num}</code>) "
-                        f"→ Indexed <b>{chunks}</b> chunk(s) under <code>vendor_id='{vendor_id}'</code>"
-                    )
-                except Exception as e:
-                    results.append(f"❌ <b>{f.filename}</b>: Ingestion error — {e}")
+                chunks = ingest_invoice(invoice_number=stem, text=text, filename=fname)
+                ingested.append({"filename": fname, "invoice_number": stem, "chunks": chunks})
+                logger.info("[RAG-UPLOAD] Successfully ingested '%s' -> %d chunks", fname, chunks)
 
-        if raw_text:
-            inv_num = invoice_number if invoice_number else "PASTED-INV"
-            try:
-                chunks = ingest_invoice(tenant_id=vendor_id, invoice_number=inv_num, text=raw_text)
-                results.append(
-                    f"✅ Pasted Text (Invoice: <code>{inv_num}</code>) "
-                    f"→ Indexed <b>{chunks}</b> chunk(s) under <code>vendor_id='{vendor_id}'</code>"
-                )
             except Exception as e:
-                results.append(f"❌ Pasted Text Error: {e}")
+                logger.error("[RAG-UPLOAD] Error processing '%s': %s", fname, e)
+                errors.append({"filename": fname, "error": str(e)})
 
-        if not results:
-            results.append("⚠️ No files or text were provided.")
+        logger.info("[RAG-UPLOAD] Batch complete: %d succeeded, %d failed", len(ingested), len(errors))
+        res = jsonify({
+            "success": len(ingested) > 0,
+            "ingested": ingested,
+            "errors": errors,
+        })
+        res.headers['Access-Control-Allow-Origin'] = '*'
+        return res
 
-        vendors = Vendor.query.order_by(Vendor.VendorName).all()
-        return render_template(
-            'vim_rag_ingest_results.html',
-            vendor_id=vendor_id,
-            results=results,
-            vendors=vendors,
+    @app.route('/chat', methods=['POST', 'OPTIONS'])
+    @app.route('/admin/rag_chat', methods=['POST', 'OPTIONS'])
+    def rag_chat_stream():
+        """SSE streaming endpoint for AI RAG Chatbot queries."""
+        if request.method == 'OPTIONS':
+            resp = make_response('', 204)
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return resp
+
+        from vim.rag.query_crew import stream_rag_chat
+
+        data = request.get_json(silent=True) or {}
+        messages = data.get('messages', [])
+        filter_doc_id = data.get('filter_doc_id')
+        writing_style = data.get('writing_style', 'default')
+        citations = data.get('citations', False)
+        custom_model = data.get('model')
+
+        logger.info("[RAG-STREAM] Received chat SSE request (msgs=%d, style='%s', citations=%s, model='%s')",
+                    len(messages), writing_style, citations, custom_model)
+
+        def generate():
+            for chunk in stream_rag_chat(
+                messages=messages,
+                filter_doc_id=filter_doc_id,
+                writing_style=writing_style,
+                citations=citations,
+                custom_model=custom_model,
+            ):
+                yield chunk
+
+        return Response(
+            generate(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            }
         )
+
+    @app.route('/llm-info', methods=['GET', 'OPTIONS'])
+    @app.route('/admin/llm-info', methods=['GET', 'OPTIONS'])
+    def rag_llm_info():
+        """Returns model info and unified store statistics."""
+        if request.method == 'OPTIONS':
+            resp = make_response('', 204)
+            resp.headers['Access-Control-Allow-Origin'] = '*'
+            resp.headers['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+            return resp
+
+        import os
+        from vim.rag.store import get_store_stats
+
+        gemini_model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+        stats = get_store_stats()
+        logger.debug("[RAG-INFO] Probe requested: model='%s', total_chunks=%d",
+                     gemini_model, stats.get('total_chunks', 0))
+
+        res = jsonify({
+            "backend": "gemini",
+            "model": gemini_model,
+            "stats": stats,
+        })
+        res.headers['Access-Control-Allow-Origin'] = '*'
+        return res
+
+    # Legacy form routes for backward compatibility
+    @app.route('/admin/rag_ingest', methods=['POST'])
+    @admin_required
+    def admin_rag_ingest():
+        return redirect(url_for('admin_ai_assistant'))
 
     @app.route('/admin/rag_query', methods=['POST'])
     @admin_required
     def admin_rag_query():
-        """Query the RAG — retrieves from ChromaDB then synthesizes via CrewAI."""
-        from vim.rag.store import retrieve_chunks
-        from vim.rag.query_crew import QueryCrew
-
-        vendor_id = request.form.get('vendor_id', '').strip().lower().replace(' ', '_')
-        query = request.form.get('query', '').strip()
-        invoice_filter = request.form.get('invoice_filter', '').strip() or None
-
-        if not vendor_id or not query:
-            flash("Vendor and question are required.", "warning")
-            return redirect(url_for('admin_ai_assistant'))
-
-        # Retrieve raw chunks
-        raw_chunks = []
-        try:
-            raw_chunks = retrieve_chunks(
-                tenant_id=vendor_id,
-                query=query,
-                invoice_number=invoice_filter,
-                top_k=3,
-            )
-            for c in raw_chunks:
-                dist = c.get("distance")
-                c["score_str"] = f"{1 - dist:.3f}" if dist is not None else "N/A"
-        except Exception as e:
-            flash(f"Retrieval error: {e}", "danger")
-
-        # Synthesize with CrewAI
-        answer = ""
-        try:
-            crew = QueryCrew()
-            answer = crew.run(
-                tenant_id=vendor_id,
-                query=query,
-                invoice_number=invoice_filter,
-            )
-        except Exception as e:
-            answer = f"Agent execution error: {e}"
-
-        vendors = Vendor.query.order_by(Vendor.VendorName).all()
-        return render_template(
-            'vim_rag_query_results.html',
-            vendor_id=vendor_id,
-            query=query,
-            filter_display=invoice_filter or "All Invoices",
-            answer=answer,
-            raw_chunks=raw_chunks,
-            vendors=vendors,
-        )
+        return redirect(url_for('admin_ai_assistant'))
 
     # ─────────────────────────────────────────────────────────────────────────────
     # VALIDATION ISSUES API  (serves the Event Browser on /admin/issues)
@@ -1749,7 +1805,7 @@ def register_routes(app):
             }
             delta = time_map.get(time_range)
             if delta:
-                cutoff = datetime.utcnow() - delta
+                cutoff = get_ist_now() - delta
                 query = query.filter(ValidationResult.ValidationDate >= cutoff)
 
         total = query.count()

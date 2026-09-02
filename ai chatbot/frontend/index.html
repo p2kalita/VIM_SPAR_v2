@@ -4,37 +4,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SPAR VIM — AI Invoice RAG Assistant</title>
-  <meta name="description" content="SPAR Vendor Invoice Management AI Chatbot powered by Gemini RAG." />
+  <title>SPAR Infosys LLC — AI-Powered Chat</title>
+  <meta name="description" content="Upload invoices and ask questions using AI. Powered by Gemini RAG technology." />
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/rag_chat/style.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
 
   <!-- ── Header ──────────────────────────────────────────────── -->
   <header id="topbar">
-    <div class="brand-group">
-      <!-- SPAR Logo -->
-      <a href="/admin/ai_assistant" id="brand-logo" aria-label="SPAR Home">
-        <img src="/static/rag_chat/logo.png" alt="SPAR Logo" id="spar-logo" />
-      </a>
-      <!-- Return to VIM Dashboard -->
-      <a href="/admin" class="dashboard-back-link" title="Return to VIM Admin Dashboard">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-        </svg>
-        Back to Dashboard
-      </a>
-    </div>
+    <!-- SPAR Logo -->
+    <a href="#" id="brand-logo" aria-label="SPAR Home">
+      <img src="logo.png" alt="SPAR Logo" id="spar-logo" />
+    </a>
 
     <div class="header-actions">
-      <!-- Settings -->
-      <button class="btn-text-hdr" id="settings-btn" aria-label="Open settings">⚙️ Settings</button>
+      <!-- Search -->
+      <button class="btn-icon-hdr" id="search-btn" title="Search" aria-label="Search">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </button>
+      <!-- Invite -->
+      <button class="btn-text-hdr" id="settings-btn" aria-label="Open settings">Invite</button>
       <!-- New Thread -->
       <button class="btn-primary-hdr" id="new-thread-btn" aria-label="Start new thread">+ New Thread</button>
     </div>
@@ -43,7 +41,7 @@
   <!-- ── Main scrollable area ─────────────────────────────────── -->
   <main id="main-area">
 
-    <!-- ── Model info banner ───────────────────────────────────── -->
+    <!-- ── Model info banner (below header, top of content) ─── -->
     <div id="model-banner" role="status" aria-live="polite">
       <div class="model-banner-inner">
         <span class="model-banner-icon" aria-hidden="true">
@@ -53,14 +51,13 @@
           </svg>
         </span>
         <div class="model-banner-text">
-          <p class="model-banner-title">SPAR In-house AI Model <span id="model-name-display">Gemini RAG</span> Active
-          </p>
+          <p class="model-banner-title">In-house AI model <span id="model-name-display">Qwen2.5-3B-Instruct</span>
+            Deployed</p>
           <p class="model-banner-sub">Running securely within our infrastructure. Your data never leaves our premises.
           </p>
         </div>
-        <button class="model-banner-link" id="model-learn-more"
-          onclick="document.getElementById('settings-btn').click()" aria-label="Configure model settings">
-          Configure
+        <button class="model-banner-link" id="model-learn-more" aria-label="Learn more about the deployed model">
+          Learn more
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -74,32 +71,22 @@
       <!-- Animated gradient orb -->
       <div class="orb" id="orb" aria-hidden="true"></div>
 
-      <h1 id="welcome-heading">{{ greeting or 'Good day, Partha' }}</h1>
-      <p class="welcome-sub">How can I assist with your <span class="accent">invoices today?</span></p>
-
-      <!-- Document Stats Pill -->
-      <div id="doc-stats-pill" class="rag-stats-pill">
-        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-          </path>
-        </svg>
-        <span>Loading Vector Database stats...</span>
-      </div>
+      <h1 id="welcome-heading">Good afternoon, Partha</h1>
+      <p class="welcome-sub">What's on <span class="accent">your mind?</span></p>
 
       <!-- Example prompts -->
       <!-- <div class="examples-grid" role="list">
-        <button class="example-card" data-prompt="Summarize all uploaded invoice amounts and their due dates." role="listitem">
-          <p class="example-text">📊 Summarize all uploaded invoice amounts and due dates</p>
+        <button class="example-card" data-prompt="What is the total amount on the latest invoice?" role="listitem">
+          <p class="example-text">What is the total amount on the latest invoice?</p>
         </button>
-        <button class="example-card" data-prompt="Which vendors are listed on the indexed invoices?" role="listitem">
-          <p class="example-text">🏢 Which vendors are listed on the indexed invoices?</p>
+        <button class="example-card" data-prompt="Who is the vendor on the invoice?" role="listitem">
+          <p class="example-text">Who is the vendor on the invoice?</p>
         </button>
-        <button class="example-card" data-prompt="Are there any discrepancies or tax amount calculations mentioned in the invoices?" role="listitem">
-          <p class="example-text">🔍 Check tax calculations and line items across invoices</p>
+        <button class="example-card" data-prompt="Summarise all uploaded invoices" role="listitem">
+          <p class="example-text">Summarise all uploaded invoices</p>
         </button>
-        <button class="example-card" data-prompt="What are the payment terms and bank account instructions across the invoices?" role="listitem">
-          <p class="example-text">💳 What are the payment terms and bank transfer details?</p>
+        <button class="example-card" data-prompt="What are the payment terms?" role="listitem">
+          <p class="example-text">What are the payment terms?</p>
         </button>
       </div> -->
     </section>
@@ -118,16 +105,16 @@
         <!-- Input shell -->
         <div id="input-shell">
           <!-- Paperclip / attach -->
-          <button type="button" id="attach-trigger-btn" class="attach-icon-btn"
-            title="Upload Invoices (PDF, JPG, PNG, TXT)" aria-label="Attach invoice file">
+          <button type="button" id="attach-trigger-btn" class="attach-icon-btn" title="Attach file"
+            aria-label="Attach invoice file">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                 d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
           </button>
-          <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp,.txt"
+          <input type="file" id="file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif,.bmp,.webp"
             aria-hidden="true" style="display:none;" />
-          <textarea id="chat-input" rows="1" placeholder="Ask questions about uploaded invoices or attach new files..."
+          <textarea id="chat-input" rows="1" placeholder="Ask AI a question or make a request..."
             aria-label="Chat message input"></textarea>
           <button type="submit" id="send-btn" aria-label="Send message" title="Send">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
@@ -141,61 +128,61 @@
         <div id="controls-row">
           <div class="controls-left">
             <!-- Attach button -->
-            <button type="button" class="ctrl-btn" id="attach-btn" aria-label="Attach invoice documents">
+            <button type="button" class="ctrl-btn" id="attach-btn" aria-label="Attach file">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
-              Attach Invoices
+              Attach
             </button>
             <!-- Writing styles -->
             <select id="writing-style" class="ctrl-select" aria-label="Writing style">
-              <option value="default">Writing Style: Default</option>
-              <option value="formal">Formal &amp; Concise</option>
-              <option value="casual">Casual &amp; Conversational</option>
-              <option value="creative">Detailed Analysis</option>
+              <option value="default">Writing Styles</option>
+              <option value="formal">Formal</option>
+              <option value="casual">Casual</option>
+              <option value="creative">Creative</option>
             </select>
           </div>
 
           <div class="controls-right">
             <!-- Citation toggle -->
             <label class="citation-label" for="citation-toggle">
-              <input type="checkbox" id="citation-toggle" checked />
-              <span class="citation-text">Include Citations</span>
+              <input type="checkbox" id="citation-toggle" />
+              <span class="citation-text">Citation</span>
             </label>
-            <!-- Quick action settings -->
+            <!-- Flash / quick action -->
             <button type="button" class="ctrl-icon-btn" id="settings-btn-ctrl" aria-label="Settings" title="Settings">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </button>
           </div>
         </div>
       </form>
 
-      <p id="input-footer">AI responses are grounded on indexed invoices. Always verify critical financial figures.</p>
+      <p id="input-footer">Ai can make mistakes. Check important info.</p>
     </div>
 
     <!-- ── Privacy trust banner ──────────────────────────────── -->
     <div id="privacy-banner">
       <div class="privacy-divider">
         <span class="divider-line"></span>
+        <!-- Shield icon -->
         <span class="privacy-shield" aria-hidden="true">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
               d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
         </span>
         <p class="privacy-heading">
-          Enterprise <span class="privacy-highlight">DATA</span> and
-          <span class="privacy-highlight">PRIVACY</span> Protected
+          Your <span class="privacy-highlight">DATA</span> and
+          <span class="privacy-highlight">PRIVACY</span> is
+          <span class="privacy-highlight">SAFE</span> with us
         </p>
         <span class="divider-line"></span>
       </div>
-      <p class="privacy-sub">Your DATA never leaves our premises.</p>
+      <p class="privacy-sub">You DATA never leaves our premises.</p>
     </div>
   </footer>
 
@@ -203,32 +190,35 @@
   <div id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div id="settings-modal">
       <div class="modal-header">
-        <h2 id="modal-title">⚙️ RAG Assistant Settings</h2>
+        <h2 id="modal-title">⚙️ Settings</h2>
         <button class="modal-close" id="modal-close" aria-label="Close settings">✕</button>
       </div>
 
       <div class="form-group">
-        <label for="api-url-input">Backend API Base URL (leave blank for local VIM host)</label>
-        <input type="text" id="api-url-input" class="form-control" placeholder="Default: relative host" />
-        <p class="hint">Keep blank when accessing inside the VIM application.</p>
+        <label for="api-url-input">Backend API URL</label>
+        <input type="url" id="api-url-input" class="form-control" placeholder="http://127.0.0.1:8000" />
+        <p class="hint">Default: http://127.0.0.1:8000</p>
       </div>
 
       <div class="modal-divider"></div>
       <div class="modal-divider-label">
-        <span>LLM Configuration</span>
+        <span>vLLM Endpoint (Colab + ngrok)</span>
         <span id="vllm-status-badge" class="vllm-badge vllm-badge--checking">checking…</span>
       </div>
 
       <div class="form-group">
-        <label for="model-input">Model Name</label>
-        <input type="text" id="model-input" class="form-control" placeholder="gemini-2.5-flash" />
-        <p class="hint">e.g. gemini-2.5-flash, gemini-1.5-pro, or Qwen2.5-3B-Instruct</p>
+        <label for="endpoint-input">vLLM Base URL</label>
+        <input type="url" id="endpoint-input" class="form-control" placeholder="https://xxxx.ngrok-free.dev/v1" />
+        <p class="hint">
+          Paste your current Colab ngrok URL here and click Save.
+          Must end with <code>/v1</code>. Restarts each Colab session.
+        </p>
       </div>
 
       <div class="form-group">
-        <label for="endpoint-input">Optional Custom OpenAI/vLLM Base URL</label>
-        <input type="url" id="endpoint-input" class="form-control" placeholder="https://xxxx.ngrok-free.dev/v1" />
-        <p class="hint">Optional: paste local vLLM or Ollama endpoint.</p>
+        <label for="model-input">Model Name</label>
+        <input type="text" id="model-input" class="form-control" placeholder="Qwen/Qwen2.5-3B-Instruct" />
+        <p class="hint">e.g. gemini-3.5-flash or mistral-7b-instruct</p>
       </div>
 
       <button class="btn-save" id="save-settings">Save Settings</button>
@@ -238,7 +228,7 @@
   <!-- ── Toast container ────────────────────────────────────── -->
   <div id="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <script src="/static/rag_chat/app.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>

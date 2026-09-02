@@ -3,6 +3,7 @@ import json
 import threading
 from pathlib import Path
 from datetime import datetime, timedelta
+from vim.timezone import get_ist_now
 from vim.extraction.vendors import find_registered_vendor
 from vim_logger import get_logger
 
@@ -533,7 +534,7 @@ class DuplicateDetection(BaseStage):
             except (FileNotFoundError, json.JSONDecodeError):
                 processed_invoices = []
 
-            current_time = datetime.now()
+            current_time = get_ist_now()
             cutoff_date = current_time - timedelta(days=30)
 
             recent_invoices = []
