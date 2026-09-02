@@ -60,12 +60,38 @@
         th {
             background: #e8eef7;
         }
+
+       .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.dashboard-btn {
+    padding: 10px 20px;
+    background-color: #1f6b9a;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: 600;
+}
+
+.dashboard-btn:hover {
+    background-color: #155274;
+}
     </style>
 </head>
 
 <body>
 
+   <div class="page-header">
     <h1>Approval Management</h1>
+
+    <a href="{{ url_for('admin_activities') }}" class="dashboard-btn">
+        Go to Dashboard
+    </a>
+    </div>
 
     <div class="card">
 
