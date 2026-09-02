@@ -135,6 +135,10 @@
     .badge-failed { background: #f8d7da; color: #721c24; }
     .badge-default { background: #e2e3e5; color: #383d41; }
 
+    .due-overdue { color: #d32f2f; font-weight: 600; }
+    .due-today { color: #f57c00; font-weight: 600; }
+    .due-upcoming { color: #555; }
+
     .empty-state {
         color: #888;
         font-style: italic;
@@ -161,33 +165,14 @@
         background: #023e8a;
     }
 
-    .dash-table.compact {
-        font-size: 0.82em;
-    }
-
     .dash-table.compact th,
     .dash-table.compact td {
         padding: 6px 8px;
-    }
-
-    .chart-wrap-bar {
-        max-width: 320px;
-        height: 240px;
-        margin: 0 auto;
+        font-size: 0.9em;
     }
 
     .chart-wrap {
         max-width: 320px;
-        margin: 0 auto;
-    }
-
-    .panel-wide {
-        grid-column: 1 / -1;
-    }
-
-    .chart-wrap-time {
-        width: 100%;
-        height: 260px;
         margin: 0 auto;
     }
 </style>
@@ -195,8 +180,8 @@
 <div class="dash-wrap">
     <div class="dash-header">
         <div>
-            <h2>📈 Invoice Processing Dashboard</h2>
-            <p class="dash-meta">Live KPIs from vendors, users, invoices, OCR extraction, and validation results.</p>
+            <h2>Invoice Processing Dashboard</h2>
+            <p class="dash-meta">Invoice volume, approval status, due dates, and held documents.</p>
         </div>
         <div class="dash-meta">Last updated: {{ metrics.generated_at }}</div>
     </div>
@@ -207,167 +192,43 @@
             <div class="kpi-value">{{ metrics.kpis.total_invoices }}</div>
             <div class="kpi-sub">{{ metrics.kpis.invoices_this_week }} this week</div>
         </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Value This Month</div>
+            <div class="kpi-value">{{ "{:,.2f}".format(metrics.kpis.month_value) }}</div>
+            <div class="kpi-sub">{{ metrics.kpis.invoices_this_month }} invoices · {{ "{:,.2f}".format(metrics.kpis.total_value) }} all time</div>
+        </div>
+        <div class="kpi-card warning">
+            <div class="kpi-label">Pending Approval</div>
+            <div class="kpi-value">{{ metrics.kpis.pending_approval }}</div>
+            <div class="kpi-sub">Assigned, not yet decided</div>
+        </div>
         <div class="kpi-card success">
-            <div class="kpi-label">Passed Validation</div>
-            <div class="kpi-value">{{ metrics.kpis.invoices_passed_validation }}</div>
-            <div class="kpi-sub">Invoices with no failures</div>
+            <div class="kpi-label">Approved</div>
+            <div class="kpi-value">{{ metrics.kpis.approved }}</div>
+            <div class="kpi-sub">Approver accepted</div>
         </div>
         <div class="kpi-card danger">
-            <div class="kpi-label">Failed Validation</div>
-            <div class="kpi-value">{{ metrics.kpis.invoices_failed_validation }}</div>
-            <div class="kpi-sub">Invoices with at least one failure</div>
+            <div class="kpi-label">Rejected</div>
+            <div class="kpi-value">{{ metrics.kpis.rejected }}</div>
+            <div class="kpi-sub">Approver declined</div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Total Invoice Value</div>
-            <div class="kpi-value">{{ "{:,.2f}".format(metrics.kpis.total_value) }}</div>
-            <div class="kpi-sub">{{ "{:,.2f}".format(metrics.kpis.month_value) }} this month</div>
+        <div class="kpi-card warning">
+            <div class="kpi-label">Held Documents</div>
+            <div class="kpi-value">{{ metrics.kpis.held_documents }}</div>
+            <div class="kpi-sub">{{ metrics.kpis.held_pending }} awaiting a decision</div>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Active Vendors</div>
-            <div class="kpi-value">{{ metrics.kpis.active_vendors }}</div>
-            <div class="kpi-sub">{{ metrics.kpis.total_vendors }} registered total</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">Active Users</div>
-            <div class="kpi-value">{{ metrics.kpis.active_users }}</div>
-            <div class="kpi-sub">{{ metrics.kpis.total_users }} registered total</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-label">OCR Extractions</div>
-            <div class="kpi-value">{{ metrics.kpis.ocr_extractions }}</div>
-            <div class="kpi-sub">{{ metrics.kpis.avg_extraction_confidence }}% avg confidence</div>
-        </div>
-    </div>
-
-    <div class="panel-grid">
-        <div class="panel panel-wide">
-            <h4>Invoice Cost Over Time</h4>
-            {% if metrics.cost_over_time.labels %}
-            <div class="chart-wrap-time">
-                <canvas id="costOverTimeChart"></canvas>
+        <div class="kpi-card danger">
+            <div class="kpi-label">Overdue</div>
+            <div class="kpi-value">{{ metrics.kpis.overdue }}</div>
+            <div class="kpi-sub">
+                {% if metrics.kpis.overdue %}
+                {{ "{:,.2f}".format(metrics.kpis.overdue_value) }} overdue ·
+                {% endif %}
+                {{ metrics.kpis.due_this_week }} due in 7 days
+                {% if metrics.kpis.missing_due_date %}
+                · {{ metrics.kpis.missing_due_date }} with no due date
+                {% endif %}
             </div>
-            {% else %}
-            <p class="empty-state">No invoice cost data yet.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="panel-grid">
-        <div class="panel">
-            <h4>Processing Summary</h4>
-            <table class="dash-table">
-                <tbody>
-                    <tr>
-                        <td>Vendors</td>
-                        <td><strong>{{ metrics.kpis.total_vendors }}</strong> ({{ metrics.kpis.active_vendors }} active)</td>
-                    </tr>
-                    <tr>
-                        <td>Users</td>
-                        <td><strong>{{ metrics.kpis.total_users }}</strong> ({{ metrics.kpis.active_users }} active)</td>
-                    </tr>
-                    <tr>
-                        <td>Invoices</td>
-                        <td><strong>{{ metrics.kpis.total_invoices }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>OCR Extractions</td>
-                        <td><strong>{{ metrics.kpis.ocr_extractions }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Invoices Passed Validation</td>
-                        <td><strong style="color:#388e3c;">{{ metrics.kpis.invoices_passed_validation }}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Invoices Failed Validation</td>
-                        <td><strong style="color:#d32f2f;">{{ metrics.kpis.invoices_failed_validation }}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-            <div class="quick-links">
-                <a href="{{ url_for('admin_invoice_upload') }}">Upload Invoice</a>
-                <a href="{{ url_for('admin_invoice_extraction') }}">Extraction</a>
-                <a href="{{ url_for('admin_invoice_validation') }}">Validation</a>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h4>Top Vendors by Invoice Count</h4>
-            {% if metrics.top_vendors %}
-            <table class="dash-table">
-                <thead>
-                    <tr>
-                        <th>Vendor</th>
-                        <th>Invoices</th>
-                        <th>Total Value</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for vendor in metrics.top_vendors %}
-                    <tr>
-                        <td>{{ vendor.name }}</td>
-                        <td>{{ vendor.invoice_count }}</td>
-                        <td>{{ "{:,.2f}".format(vendor.total_value) }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p class="empty-state">No vendor invoice data yet.</p>
-            {% endif %}
-        </div>
-    </div>
-
-    <div class="panel-grid">
-        <div class="panel">
-            <h4>Recent Invoices</h4>
-            {% if metrics.recent_invoices %}
-            <div style="overflow-x:auto;">
-                <table class="dash-table compact">
-                    <thead>
-                        <tr>
-                            <th>Invoice #</th>
-                            <th>Vendor</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for inv in metrics.recent_invoices %}
-                        <tr>
-                            <td>{{ inv.InvoiceNumber }}</td>
-                            <td>{{ inv.vendor.VendorName if inv.vendor else '—' }}</td>
-                            <td>{{ inv.Currency }} {{ "{:,.0f}".format(inv.InvoiceAmount|float) }}</td>
-                            <td>
-                                {% set st = inv.InvoiceStatus|lower %}
-                                {% if 'pending' in st %}
-                                    <span class="badge badge-pending">{{ inv.InvoiceStatus }}</span>
-                                {% elif 'approv' in st or 'paid' in st %}
-                                    <span class="badge badge-approved">{{ inv.InvoiceStatus }}</span>
-                                {% elif 'reject' in st or 'fail' in st %}
-                                    <span class="badge badge-failed">{{ inv.InvoiceStatus }}</span>
-                                {% else %}
-                                    <span class="badge badge-default">{{ inv.InvoiceStatus }}</span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-            {% else %}
-            <p class="empty-state">No invoices processed yet.</p>
-            {% endif %}
-        </div>
-
-        <div class="panel">
-            <h4>Validation Issues by Type</h4>
-            {% if metrics.validation_issue_counts %}
-            <div class="chart-wrap-bar">
-                <canvas id="validationIssuesChart"></canvas>
-            </div>
-            {% else %}
-            <p class="empty-state">No validation failures recorded.</p>
-            {% endif %}
         </div>
     </div>
 
@@ -384,74 +245,128 @@
         </div>
 
         <div class="panel">
-            <h4>OCR Extraction Status</h4>
-            {% if metrics.ocr_status_counts %}
-            <div class="chart-wrap">
-                <canvas id="ocrChart"></canvas>
-            </div>
+            <h4>Approver Queue</h4>
+            {% if metrics.approver_queue %}
+            <table class="dash-table compact">
+                <thead>
+                    <tr>
+                        <th>Approver</th>
+                        <th>Pending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in metrics.approver_queue %}
+                    <tr>
+                        <td>{{ row.name }}</td>
+                        <td>{{ row.pending }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
-            <p class="empty-state">No OCR extractions yet.</p>
+            <p class="empty-state">No pending approval assignments.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="panel">
+        <h4>Due Dates</h4>
+        {% if metrics.due_dates %}
+        <table class="dash-table compact">
+            <thead>
+                <tr>
+                    <th>Invoice</th>
+                    <th>Vendor</th>
+                    <th>Due</th>
+                    <th>When</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in metrics.due_dates %}
+                <tr>
+                    <td>{{ row.invoice_number }}</td>
+                    <td>{{ row.vendor }}</td>
+                    <td>{{ row.due_date }}</td>
+                    <td class="due-{{ row.bucket }}">{{ row.when }}</td>
+                    <td>{{ row.currency }} {{ "{:,.2f}".format(row.amount) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="empty-state">No overdue invoices or invoices due in the next 7 days.</p>
+        {% endif %}
+    </div>
+
+    <div class="panel-grid">
+        <div class="panel">
+            <h4>Aging — Pending Approval</h4>
+            {% if metrics.aging %}
+            <table class="dash-table compact">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Vendor</th>
+                        <th>Approver</th>
+                        <th>Days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in metrics.aging %}
+                    <tr>
+                        <td>{{ row.invoice_number }}</td>
+                        <td>{{ row.vendor }}</td>
+                        <td>{{ row.approver }}</td>
+                        <td>{{ row.days }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No invoices waiting on an approver.</p>
+            {% endif %}
+        </div>
+
+        <div class="panel">
+            <h4>Top Vendors by Amount</h4>
+            {% if metrics.top_vendors %}
+            <table class="dash-table compact">
+                <thead>
+                    <tr>
+                        <th>Vendor</th>
+                        <th>Total Value</th>
+                        <th>Invoices</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for vendor in metrics.top_vendors %}
+                    <tr>
+                        <td>{{ vendor.name }}</td>
+                        <td>{{ "{:,.2f}".format(vendor.total_value) }}</td>
+                        <td>{{ vendor.invoice_count }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="empty-state">No vendor invoice data yet.</p>
             {% endif %}
         </div>
     </div>
 
     <div class="quick-links" style="margin-top:20px;">
-        <a href="{{ url_for('admin_activities') }}">← Back to Admin Hub</a>
-        <a href="{{ url_for('admin_vendor_activities') }}">Vendors</a>
-        <a href="{{ url_for('admin_user_activities') }}">Users</a>
+        <a href="{{ url_for('admin_activities') }}">← Admin Hub</a>
+        <a href="{{ url_for('admin_approval') }}">Approvals</a>
+        <a href="{{ url_for('admin_rejected_documents') }}">Held documents</a>
+        <a href="{{ url_for('admin_vim_issues') }}">Validation issues</a>
     </div>
 </div>
 
-{% if metrics.status_counts or metrics.ocr_status_counts or metrics.validation_issue_counts or metrics.cost_over_time.labels %}
+{% if metrics.status_counts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-    const colors = ['#0077b6', '#f57c00', '#388e3c', '#d32f2f', '#7b1fa2', '#00838f', '#5d4037'];
-
-    {% if metrics.cost_over_time.labels %}
-    new Chart(document.getElementById('costOverTimeChart'), {
-        type: 'line',
-        data: {
-            labels: {{ metrics.cost_over_time.labels | tojson }},
-            datasets: [{
-                label: 'Invoice cost',
-                data: {{ metrics.cost_over_time.amounts | tojson }},
-                borderColor: '#0077b6',
-                backgroundColor: 'rgba(0, 119, 182, 0.15)',
-                fill: true,
-                tension: 0.3,
-                pointRadius: 4,
-                pointBackgroundColor: '#0077b6',
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => ' Cost: ' + ctx.parsed.y.toLocaleString(undefined, {minimumFractionDigits: 2})
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    title: { display: true, text: 'Date' },
-                    ticks: { font: { size: 11 }, maxRotation: 45, minRotation: 0 },
-                },
-                y: {
-                    beginAtZero: true,
-                    title: { display: true, text: 'Cost' },
-                    ticks: {
-                        callback: (value) => value.toLocaleString(),
-                    }
-                }
-            }
-        }
-    });
-    {% endif %}
-
-    {% if metrics.status_counts %}
+    const colors = ['#0077b6', '#f57c00', '#388e3c', '#d32f2f', '#7b1fa2', '#00838f'];
     new Chart(document.getElementById('statusChart'), {
         type: 'doughnut',
         data: {
@@ -466,53 +381,6 @@
             plugins: { legend: { position: 'bottom' } }
         }
     });
-    {% endif %}
-
-    {% if metrics.ocr_status_counts %}
-    new Chart(document.getElementById('ocrChart'), {
-        type: 'doughnut',
-        data: {
-            labels: {{ metrics.ocr_status_counts.keys() | list | tojson }},
-            datasets: [{
-                data: {{ metrics.ocr_status_counts.values() | list | tojson }},
-                backgroundColor: ['#388e3c', '#f57c00', '#d32f2f', '#0077b6'],
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'bottom' } }
-        }
-    });
-    {% endif %}
-
-    {% if metrics.validation_issue_counts %}
-    new Chart(document.getElementById('validationIssuesChart'), {
-        type: 'bar',
-        data: {
-            labels: {{ metrics.validation_issue_counts.keys() | list | tojson }},
-            datasets: [{
-                label: 'Failures',
-                data: {{ metrics.validation_issue_counts.values() | list | tojson }},
-                backgroundColor: '#d32f2f',
-                borderRadius: 4,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1, font: { size: 10 } },
-                },
-                x: {
-                    ticks: { font: { size: 10 }, maxRotation: 45, minRotation: 0 },
-                }
-            }
-        }
-    });
-    {% endif %}
 </script>
 {% endif %}
 {% endblock %}
