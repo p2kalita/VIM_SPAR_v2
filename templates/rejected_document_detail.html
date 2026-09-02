@@ -12,6 +12,7 @@
                     <td>
                         {% if row.Reason == 'not_invoice' %}Not an invoice
                         {% elif row.Reason == 'vendor_not_registered' %}Unknown vendor
+                        {% elif row.Reason == 'incomplete_header' %}Missing vendor name
                         {% else %}{{ row.Reason }}{% endif %}
                     </td>
                 </tr>

@@ -47,20 +47,27 @@ _RESPONSE_SCHEMA = {
 _CRITERIA = """
 Decide whether this document is a VENDOR INVOICE or an equivalent billable
 document (invoice, bill, bill of supply, tax invoice, credit note, debit note,
-purchase order used for billing, utility/telecom statement).
+utility/telecom statement).
 
-It is NOT an invoice if it is, for example, a contract, resume, report,
-presentation, specification or design document, email, letter, screenshot,
-photograph, logo, chart, bank statement, marketing material, or any other
-document that does not request payment for goods or services.
+It is NOT an invoice if it is a purchase order (PO), quote, sales order,
+contract, resume, report, presentation, specification, email, letter,
+screenshot, photograph, logo, chart, bank statement, marketing material,
+or any other document that does not request payment for goods or services
+already (or being) supplied.
+
+A purchase order is a buyer's request to supply goods or services. It is
+not a vendor invoice even if it has line items, amounts, a "Sales Invoice
+Template" header, or the word "invoice" on the page.
 
 Rules:
 - Base the decision only on the content shown.
 - Mentioning the words "invoice" or "payment" is not enough on its own; look
   for a real billing structure such as an invoice number, billed amounts,
   line items, or a payment request.
+- If the document is titled PURCHASE ORDER, or it has a PO number but no
+  invoice number and no invoice date, it is not an invoice.
 - "document_type" is a short human-readable label, e.g. "Tax Invoice" or
-  "Technical Specification" or "Photograph".
+  "Purchase Order" or "Photograph".
 - "confidence" is an integer from 0 to 100.
 - "reason" is one short sentence explaining the decision.
 """.strip()
@@ -288,3 +295,41 @@ def classify_image(file_path, file_name: str = "") -> dict:
         return {**_blank_verdict(), "error": f"could not read image: {e}"}
 
     return _ask_gemini([f"{_IMAGE_PROMPT}\n\n--- IMAGE ({file_name}) ---", part])
+
+
+_PO_HEADING = re.compile(r"(?im)^\s*purchase\s+order\s*$")
+_PO_IN_TYPE = re.compile(r"purchase\s*order|\bpo\b", re.I)
+_PO_FILENAME = re.compile(r"(?i)(^|[^a-z0-9])po[-_\s.]")
+
+
+def purchase_order_hold_reason(record: dict) -> str | None:
+    """
+    Return a hold reason when extracted fields show a purchase order, not an invoice.
+
+    Gemini can miss this when the file is a PO printed on an invoice template.
+    A real invoice may reference a PO number, but it still has an invoice number.
+    """
+    invoice_number = str(record.get("invoice_number") or "").strip()
+    po_number = str(record.get("po_number") or "").strip()
+    invoice_date = str(record.get("invoice_date") or "").strip()
+    document_type = str(record.get("document_type") or "").strip()
+    raw_text = record.get("raw_text") or ""
+    file_name = str(record.get("file_name") or record.get("stored_file_name") or "")
+
+    if _PO_IN_TYPE.search(document_type) and "invoice" not in document_type.lower():
+        return f"Document type is '{document_type}', not an invoice."
+
+    if _PO_HEADING.search(raw_text) and not invoice_number:
+        return "The document is labelled PURCHASE ORDER and has no invoice number."
+
+    if po_number and not invoice_number and not invoice_date:
+        return (
+            f"This looks like purchase order {po_number}: it has a PO number "
+            "but no invoice number or invoice date."
+        )
+
+    if _PO_FILENAME.search(Path(file_name).name) and not invoice_number:
+        return "The file is named as a purchase order and has no invoice number."
+
+    return None
+

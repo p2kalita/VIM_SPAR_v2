@@ -52,8 +52,11 @@ Rules:
 Document type (derived):
 - "document_type_code" is 0 for an invoice or bill, 1 for a debit
   memo/debit note, 2 for a credit memo/credit note or refund, and 3 for any
-  other kind of document. Judge this from the document's own title and
-  wording, not from the presence of negative amounts.
+  other kind of document (including a purchase order). Judge this from the
+  document's own title and wording, not from the presence of negative amounts.
+  A purchase order is code 3, even if it is printed on an invoice template.
+- "document_type" should be the printed title, e.g. "Purchase Order", not
+  "Sales Invoice" unless the document actually is an invoice.
 - "po_non_po" is "PO" when the document references a purchase order number,
   and "Non-PO" when it does not.
  

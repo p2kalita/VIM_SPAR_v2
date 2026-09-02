@@ -102,6 +102,7 @@ def _process_one(app, job_id, index, saved_path, original_name) -> None:
         detail = (
             record.get("_extraction_error")
             or record.get("_db_error")
+            or record.get("_incomplete_reason")
             or record.get("_not_invoice_reason")
         )
         _update_file(

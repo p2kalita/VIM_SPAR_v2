@@ -9,7 +9,11 @@ from uuid import uuid4
 from werkzeug.utils import secure_filename
 
 from vim.extraction import config
-from vim.extraction.classifier import classify_document, classify_image
+from vim.extraction.classifier import (
+    classify_document,
+    classify_image,
+    purchase_order_hold_reason,
+)
 from vim.extraction.enrich import extract_from_file, load_document_text
 from vim.extraction.load import insert_record
 from vim.extraction.schema import empty_record
@@ -102,10 +106,16 @@ def _hold_as_rejected(record: dict, reason: str) -> dict:
  
 def _resolve_status(record: dict) -> str:
     """Derive pipeline status from extraction/validation outcome."""
+    if record.get("invoice_id") is not None:
+        if record.get("_validation_issues"):
+            return "needs_review"
+        return "success"
     if record.get("status") == "vendor_not_registered":
         return "vendor_not_registered"
     if record.get("status") == "not_invoice":
         return "not_invoice"
+    if record.get("status") == "incomplete_header":
+        return "incomplete_header"
     if record.get("_extraction_error"):
         return "extraction_failed"
     if record.get("_db_error") or record.get("status") == "db_error":
@@ -113,23 +123,44 @@ def _resolve_status(record: dict) -> str:
     if record.get("_validation_issues"):
         return "needs_review"
     return "success"
- 
- 
-def _vendor_gate_failure(
-    *,
+
+
+def _hold_incomplete_header(
+    record: dict,
     original_name: str,
     saved_path: Path,
-    vendor_name: str | None,
-    message: str,
 ) -> dict:
-    record = empty_record()
+    """
+    Keep the extracted snapshot but do not create an invoice.
+
+    Without a vendor name there is no VendorID, so the invoice and
+    validation_result tables cannot be written. The trace lives on
+    rejected_document instead.
+    """
+    from vim.extraction.rejections import REASON_INCOMPLETE_HEADER
+
+    missing = ["vendor_name"]
+    if not str(record.get("invoice_number") or "").strip():
+        missing.append("invoice_number")
+
     record["file_name"] = original_name
-    record["stored_file_name"] = saved_path.name
-    record["file_path"] = str(saved_path)
-    record["vendor_name"] = vendor_name
-    record["_extraction_error"] = message
-    record["status"] = "vendor_not_registered"
-    return record
+    record["stored_file_name"] = saved_path.name if saved_path else record.get("stored_file_name")
+    record["file_path"] = str(saved_path) if saved_path else record.get("file_path")
+    record["vendor_id"] = None
+    record["status"] = "incomplete_header"
+    record["_missing_fields"] = missing
+    record["_incomplete_reason"] = (
+        "Could not read the issuing vendor from this document. "
+        "No invoice was saved because a vendor name is required to "
+        "create a vendor and invoice row. Review it under Rejected Documents."
+    )
+    record.pop("_extraction_error", None)
+    logger.warning(
+        "[PERSIST] Incomplete header on '%s' — missing %s; held as rejected_document",
+        original_name,
+        missing,
+    )
+    return _hold_as_rejected(record, REASON_INCOMPLETE_HEADER)
  
  
 def _not_invoice_result(
@@ -236,6 +267,10 @@ def process_saved_file(
             record["status"] = "extraction_failed"
             upsert_record(record)
             return record
+        if not skip_invoice_check:
+            held = _hold_if_purchase_order(record, original_name, saved_path)
+            if held is not None:
+                return held
         return _persist_record(record, original_name, saved_path)
  
     _log("parsing text")
@@ -270,32 +305,113 @@ def process_saved_file(
             logger.warning("[CLASSIFY] text classification unavailable for '%s': %s",
                            original_name, verdict["error"])
         elif verdict.get("is_invoice") is False:
-            record = _not_invoice_result(
-                original_name=original_name,
-                saved_path=saved_path,
-                raw_text=raw_text,
-                verdict=verdict,
+            record["raw_text"] = raw_text
+            return _hold_not_invoice_keep_extraction(
+                record, original_name, saved_path, verdict
             )
-            return _hold_as_rejected(record, "not_invoice")
     else:
         _log("extracting")
         record = extract_from_file(str(saved_path), raw_text=raw_text)
- 
+
+    record["file_name"] = original_name
+    record["stored_file_name"] = saved_path.name
+    if not record.get("raw_text"):
+        record["raw_text"] = raw_text
+
+    if not skip_invoice_check:
+        held = _hold_if_purchase_order(record, original_name, saved_path)
+        if held is not None:
+            return held
+
     _log("persisting")
     record = _persist_record(record, original_name, saved_path)
     _log(f"done status={record.get('status')}")
     return record
  
  
+def _hold_if_purchase_order(
+    record: dict,
+    original_name: str,
+    saved_path: Path,
+    *,
+    vendor_approved: bool = False,
+):
+    """Hold a PO for proceed/stop instead of saving it as an invoice."""
+    reason = purchase_order_hold_reason(record)
+    if not reason:
+        return None
+
+    logger.info("[PIPELINE] '%s' held as purchase order: %s", original_name, reason)
+    record["document_type"] = record.get("document_type") or "Purchase Order"
+    if record.get("document_type_code") == 0:
+        record["document_type_code"] = 3
+    verdict = {
+        "is_invoice": False,
+        "document_type": "Purchase Order",
+        "confidence": 95,
+        "reason": reason,
+    }
+    return _hold_not_invoice_keep_extraction(
+        record, original_name, saved_path, verdict, vendor_approved=vendor_approved
+    )
+
+
+def _classify_held_record(saved_path: Path, original_name: str, record: dict) -> dict:
+    """Run the invoice classifier on a file already extracted and sitting on disk."""
+    is_image = saved_path.suffix.lower() in config.IMAGE_EXTENSIONS
+    if is_image:
+        return classify_image(saved_path, original_name)
+
+    raw_text = (record.get("raw_text") or "").strip()
+    if not raw_text:
+        raw_text, parse_error = load_document_text(str(saved_path))
+        if parse_error:
+            logger.warning(
+                "[VENDOR-APPROVE] Could not re-read text for '%s': %s",
+                original_name, parse_error,
+            )
+            return {"is_invoice": None, "error": parse_error}
+        record["raw_text"] = raw_text
+    return classify_document(raw_text, original_name)
+
+
+def _hold_not_invoice_keep_extraction(
+    record: dict,
+    original_name: str,
+    saved_path: Path,
+    verdict: dict,
+    *,
+    vendor_approved: bool = False,
+) -> dict:
+    """Hold as not-an-invoice without wiping the extracted vendor snapshot."""
+    record["file_name"] = original_name
+    record["stored_file_name"] = saved_path.name if saved_path else record.get("stored_file_name")
+    record["file_path"] = str(saved_path) if saved_path else record.get("file_path")
+    record["status"] = "not_invoice"
+    record["_classification"] = verdict
+    record["_not_invoice_reason"] = (
+        verdict.get("reason") or "Gemini did not recognise this as an invoice."
+    )
+    record["_document_type"] = verdict.get("document_type")
+    record["_vendor_approved"] = vendor_approved
+    record.pop("_extraction_error", None)
+    return _hold_as_rejected(record, "not_invoice")
+
+
 def persist_approved_vendor(
     stored_file_name: str,
     original_name: str,
     user_id=None,
+    *,
+    skip_invoice_check: bool = False,
 ) -> dict:
     """
     Register the vendor the admin approved and save the already-extracted invoice.
 
     Reuses the record from enriched.json so extraction is not run again.
+    Unless skip_invoice_check is set (admin already overrode a not-invoice
+    verdict), classify the document first. A non-invoice is held for a
+    proceed/stop decision and the vendor is not created yet.
     """
     from vim.extraction.json_store import find_by_stored_name
 
@@ -309,9 +425,42 @@ def persist_approved_vendor(
     if saved_path is None:
         saved_path = Path(record.get("file_path") or stored_file_name)
 
+    display_name = original_name or record.get("file_name") or stored_file_name
+
+    if not skip_invoice_check:
+        logger.info("[VENDOR-APPROVE] Classifying '%s' before registering vendor", display_name)
+        verdict = _classify_held_record(saved_path, display_name, record)
+        if verdict.get("error"):
+            logger.warning(
+                "[VENDOR-APPROVE] Classification unavailable for '%s': %s — continuing",
+                display_name, verdict["error"],
+            )
+        elif verdict.get("is_invoice") is False:
+            logger.info(
+                "[VENDOR-APPROVE] '%s' is not an invoice (%s) — holding for proceed/stop",
+                display_name, verdict.get("document_type"),
+            )
+            return _hold_not_invoice_keep_extraction(
+                record, display_name, saved_path, verdict, vendor_approved=True,
+            )
+
+        held = _hold_if_purchase_order(
+            record, display_name, saved_path, vendor_approved=True
+        )
+        if held is not None:
+            return held
+
+    if skip_invoice_check or record.get("status") in (
+        "not_invoice",
+        "vendor_not_registered",
+    ):
+        record.pop("_pending_vendor", None)
+        if record.get("status") in ("not_invoice", "vendor_not_registered"):
+            record["status"] = None
+
     return _persist_record(
         record,
-        original_name or record.get("file_name") or stored_file_name,
+        display_name,
         saved_path,
         register_new_vendor=True,
         decided_by=user_id,
@@ -341,6 +490,9 @@ def _persist_record(
         upsert_record(record)
         return record
 
+    if not str(record.get("vendor_name") or "").strip():
+        return _hold_incomplete_header(record, original_name, saved_path)
+
     # SQLite takes one writer at a time. Serialising this costs almost
     # nothing because the slow work has already finished.
     with _db_write_lock:
@@ -350,20 +502,6 @@ def _persist_record(
 
         if not vendor:
             db.session.rollback()
-            if not (record.get("vendor_name") or "").strip():
-                logger.warning("[PERSIST] No vendor name on '%s' — cannot persist", original_name)
-                failed = _vendor_gate_failure(
-                    original_name=original_name,
-                    saved_path=saved_path,
-                    vendor_name=record.get("vendor_name"),
-                    message=(
-                        "Could not read the issuing vendor from this document. "
-                        "Add the vendor under Admin -> Vendors, then upload again."
-                    ),
-                )
-                upsert_record(failed)
-                return failed
-
             # Extracted, but the vendor is new. Hold the invoice until the
             # admin chooses to register them or discard this upload.
             logger.info("[PERSIST] Unknown vendor '%s' on '%s' — holding for admin decision",

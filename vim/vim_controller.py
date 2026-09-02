@@ -961,6 +961,17 @@ def register_routes(app):
                     "danger",
                 )
 
+        incomplete = [
+            r for r in results if r.get("status") == "incomplete_header"
+        ]
+        if incomplete:
+            flash(
+                f"{len(incomplete)} document(s) held because the vendor name "
+                "could not be read. Nothing was saved as an invoice — review "
+                "them under Rejected Documents.",
+                "warning",
+            )
+
         _flash_vendor_registrations(results)
         _remember_pending_not_invoice(results)
         _remember_pending_new_vendor(results)
@@ -1036,20 +1047,31 @@ def register_routes(app):
 
     def _remember_pending_not_invoice(records):
         """Queue classifier-rejected uploads for an explicit user decision."""
-        pending = [
+        incoming = [
             {
                 "file_name": r.get("file_name"),
                 "stored_file_name": r.get("stored_file_name"),
                 "document_type": r.get("_document_type"),
                 "reason": r.get("_not_invoice_reason"),
                 "confidence": (r.get("_classification") or {}).get("confidence"),
+                "vendor_approved": bool(r.get("_vendor_approved")),
+                "vendor_name": r.get("vendor_name"),
             }
             for r in records
             if r.get("status") == "not_invoice" and r.get("stored_file_name")
         ]
-        if pending:
-            session['pending_not_invoice'] = pending
-            session.modified = True
+        if not incoming:
+            return
+
+        existing = {
+            p.get("stored_file_name"): p
+            for p in (session.get("pending_not_invoice") or [])
+            if p.get("stored_file_name")
+        }
+        for item in incoming:
+            existing[item["stored_file_name"]] = item
+        session["pending_not_invoice"] = list(existing.values())
+        session.modified = True
 
     def _remember_pending_new_vendor(records):
         """Queue unknown-vendor invoices for an explicit register-or-stop decision."""
@@ -1241,7 +1263,11 @@ def register_routes(app):
                     "danger",
                 )
             else:
-                _force_process(saved_path, original_name)
+                _force_process(
+                    saved_path,
+                    original_name,
+                    register_new_vendor=bool(entry.get("vendor_approved")),
+                )
 
         else:
             flash("Unknown action.", "warning")
@@ -1303,7 +1329,19 @@ def register_routes(app):
                 return redirect(url_for('admin_invoice_upload'))
 
             invoice_id = record.get("invoice_id")
-            if invoice_id is None:
+            if record.get("status") == "not_invoice":
+                logger.info(
+                    "[VENDOR-DECIDE] Vendor '%s' approved but '%s' is not an invoice",
+                    vendor_name, original_name,
+                )
+                _remember_pending_not_invoice([record])
+                flash(
+                    f"You chose to register '{vendor_name}', but '{original_name}' "
+                    "was not recognised as an invoice. Choose whether to proceed "
+                    "anyway or stop. The vendor will only be created if you proceed.",
+                    "warning",
+                )
+            elif invoice_id is None:
                 logger.warning("[VENDOR-DECIDE] Registered '%s' but invoice was not saved: %s",
                                vendor_name, record.get('_db_error') or record.get('status'))
                 flash(
@@ -1342,15 +1380,26 @@ def register_routes(app):
         session.modified = True
         return redirect(url_for('admin_invoice_upload'))
 
-    def _force_process(saved_path, original_name):
+    def _force_process(saved_path, original_name, *, register_new_vendor=False):
         """Run the pipeline on a rejected document the user chose to keep."""
-        from vim.extraction.service import process_saved_file
+        from vim.extraction.service import persist_approved_vendor, process_saved_file
 
-        logger.info("[FORCE-PROCESS] Forcing pipeline on '%s' (%s)", original_name, saved_path)
+        logger.info(
+            "[FORCE-PROCESS] Forcing pipeline on '%s' (%s) register_vendor=%s",
+            original_name, saved_path, register_new_vendor,
+        )
         try:
-            record = process_saved_file(
-                saved_path, original_name, skip_invoice_check=True
-            )
+            if register_new_vendor:
+                record = persist_approved_vendor(
+                    saved_path.name,
+                    original_name,
+                    user_id=session.get("user_id"),
+                    skip_invoice_check=True,
+                )
+            else:
+                record = process_saved_file(
+                    saved_path, original_name, skip_invoice_check=True
+                )
         except Exception as e:
             logger.error("[FORCE-PROCESS] Failed on '%s': %s", original_name, e, exc_info=True)
             flash(f"Failed to process '{original_name}': {e}", "danger")
@@ -1411,6 +1460,19 @@ def register_routes(app):
         code = record.get("document_type_code")
         return DOCUMENT_TYPE_CODES.get(code, "—")
 
+    def _extraction_row_status(record):
+        if record.get("_extraction_error"):
+            return "Failed"
+        if record.get("status") in (
+            "incomplete_header",
+            "not_invoice",
+            "vendor_not_registered",
+        ):
+            return "Held"
+        if record.get("_validation_issues"):
+            return "NeedsReview"
+        return "Success"
+
     # ---------------- INVOICE DATA EXTRACTION REVIEW ----------------
     @app.route('/admin/invoice_extraction', methods=['GET'])
     @admin_required
@@ -1429,9 +1491,7 @@ def register_routes(app):
                 "invoice_date": rec.get("invoice_date") or "—",
                 "amount": rec.get("total_due") or "—",
                 "currency": rec.get("currency") or "",
-                "status": "Failed" if rec.get("_extraction_error") else (
-                    "NeedsReview" if rec.get("_validation_issues") else "Success"
-                ),
+                "status": _extraction_row_status(rec),
                 "line_item_count": len(rec.get("line_items") or []),
             })
 

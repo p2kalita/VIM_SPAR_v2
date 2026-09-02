@@ -1,4 +1,4 @@
-"""Persist rejected uploads (not-an-invoice, unknown vendor) for later review."""
+"""Persist rejected uploads (not-an-invoice, unknown vendor, incomplete header) for later review."""
 
 import json
 from datetime import datetime
@@ -12,6 +12,7 @@ logger = get_logger("vim.extraction.rejections")
 
 REASON_NOT_INVOICE = "not_invoice"
 REASON_NEW_VENDOR = "vendor_not_registered"
+REASON_INCOMPLETE_HEADER = "incomplete_header"
 
 DECISION_PENDING = "pending"
 DECISION_PROCEEDED = "proceeded"
@@ -65,7 +66,10 @@ def record_rejection(record: dict, *, reason: str) -> RejectedDocument:
     row.DocumentType = _fit(
         record.get("_document_type") or record.get("document_type"), 100
     )
-    row.ClassifierReason = _fit(record.get("_not_invoice_reason"), 500)
+    row.ClassifierReason = _fit(
+        record.get("_incomplete_reason") or record.get("_not_invoice_reason"),
+        500,
+    )
     row.VendorName = _fit(record.get("vendor_name"), 100)
     row.InvoiceNumber = _fit(record.get("invoice_number"), 50)
     amount = record.get("total_due")

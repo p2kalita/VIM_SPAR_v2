@@ -8,8 +8,9 @@
         <h3>Rejected / held documents</h3>
         <p style="color:#666;">
             Uploads that were not saved as invoices: the AI did not recognise
-            them as invoices, or the vendor is not registered. Stopping a
-            pending decision still keeps the row here.
+            them as invoices, the vendor name could not be read, or the
+            vendor is not registered. Stopping a pending decision still
+            keeps the row here.
         </p>
 
         {% if rows %}
@@ -36,6 +37,8 @@
                                 Not an invoice
                             {% elif row.Reason == 'vendor_not_registered' %}
                                 Unknown vendor
+                            {% elif row.Reason == 'incomplete_header' %}
+                                Missing vendor name
                             {% else %}
                                 {{ row.Reason }}
                             {% endif %}

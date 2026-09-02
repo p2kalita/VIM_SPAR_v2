@@ -55,8 +55,10 @@
     <div class="card" style="text-align:left; margin-top:20px; border-left:5px solid #0d6efd;">
         <h4>New vendor — register or stop?</h4>
         <p style="font-size:0.95em;">
-            These invoices were extracted, but the issuing vendor is not in
+            These documents were extracted, but the issuing vendor is not in
             the register. Nothing has been saved to the invoice table yet.
+            If you register the vendor, the file is then checked to confirm
+            it is an invoice before anything is saved.
         </p>
 
         {% for p in pending_new_vendor %}
@@ -90,7 +92,7 @@
                 <input type="hidden" name="stored_file_name" value="{{ p.stored_file_name }}">
                 <button type="submit" name="action" value="proceed"
                         class="btn btn-primary btn-sm">
-                    Register vendor &amp; save invoice
+                    Register vendor &amp; proceed
                 </button>
                 <button type="submit" name="action" value="stop"
                         class="btn btn-secondary btn-sm">
@@ -177,6 +179,15 @@
                 {% endif %}
             </details>
 
+            {% if p.vendor_approved %}
+            <div style="font-size:0.9em; color:#0d6efd; margin-top:8px;">
+                You already chose to register
+                <strong>{{ p.vendor_name or 'this vendor' }}</strong>.
+                Proceeding will create that vendor and save this file as an invoice.
+                Stopping will not register the vendor.
+            </div>
+            {% endif %}
+
             <form method="POST"
                   action="{{ url_for('admin_invoice_upload_decide') }}"
                   style="margin-top:10px; display:flex; gap:10px;">
@@ -247,6 +258,8 @@
                             <span style="color:#0d6efd;">New vendor — awaiting your decision</span>
                         {% elif r.status == 'not_invoice' %}
                             <span style="color:#e0a800;">Not an invoice — awaiting your decision</span>
+                        {% elif r.status == 'incomplete_header' %}
+                            <span style="color:#e0a800;">Held — missing vendor name</span>
                         {% elif r._extraction_error %}
                             <span style="color:red;">Failed</span>
                         {% elif r.status == 'db_error' %}

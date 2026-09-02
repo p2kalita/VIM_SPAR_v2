@@ -47,6 +47,8 @@
                                 <span style="color:green;">Success</span>
                             {% elif row.status == 'Failed' %}
                                 <span style="color:red;">Failed</span>
+                            {% elif row.status == 'Held' %}
+                                <span style="color:#e0a800;">Held</span>
                             {% else %}
                                 <span style="color:orange;">Needs Review</span>
                             {% endif %}

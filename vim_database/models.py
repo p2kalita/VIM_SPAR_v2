@@ -597,8 +597,9 @@ class SystemConfiguration(db.Model):
 # -------------------------------
 # RejectedDocument
 # Held uploads that were not saved as invoices: classifier said "not an
-# invoice", or the vendor is not registered and the admin stopped / has not
-# yet approved registration. Kept for later review; not part of invoice.
+# invoice", the vendor name could not be read, or the vendor is not
+# registered and the admin stopped / has not yet approved registration.
+# Kept for later review; not part of invoice.
 # -------------------------------
 class RejectedDocument(db.Model):
     __tablename__ = "rejected_document"
