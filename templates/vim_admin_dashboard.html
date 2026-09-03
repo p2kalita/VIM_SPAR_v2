@@ -2,7 +2,22 @@
 
 {% block title %} Admin Dashboard {% endblock %}
 
-{% block content %} 
+{% block content %}
+<style>
+    .container .card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    .container .card p {
+        flex: 1 1 auto;
+        margin-bottom: 16px;
+    }
+    .container .card a.button {
+        margin-top: auto;
+        align-self: center;
+    }
+</style>
 <div class="container">
 
     <div class="card">
