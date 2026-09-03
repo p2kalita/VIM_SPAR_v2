@@ -55,10 +55,9 @@
     <div class="card" style="text-align:left; margin-top:20px; border-left:5px solid #0d6efd;">
         <h4>New vendor — register or stop?</h4>
         <p style="font-size:0.95em;">
-            These documents were extracted, but the issuing vendor is not in
-            the register. Nothing has been saved to the invoice table yet.
-            If you register the vendor, the file is then checked to confirm
-            it is an invoice before anything is saved.
+            These invoices were extracted, but the issuing vendor is not
+            registered. Choose Register vendor &amp; proceed, or Stop.
+            Nothing is saved as an invoice until you register.
         </p>
 
         {% for p in pending_new_vendor %}
@@ -97,110 +96,6 @@
                 <button type="submit" name="action" value="stop"
                         class="btn btn-secondary btn-sm">
                     Stop this invoice
-                </button>
-            </form>
-        </div>
-        {% endfor %}
-    </div>
-    {% endif %}
-
-    {% if pending_not_invoice %}
-    <div class="card" style="text-align:left; margin-top:20px; border-left:5px solid #e0a800;">
-        <h4>⚠ Not recognised as an invoice</h4>
-        <p style="font-size:0.95em;">
-            The AI document check did not identify the following upload(s) as
-            invoices. Choose whether to process each one anyway or discard it.
-        </p>
-
-        {% for p in pending_not_invoice %}
-        <div style="border:1px solid #ddd; border-radius:8px; padding:12px; margin-bottom:12px;">
-            <div><strong>{{ p.file_name }}</strong></div>
-            <div style="font-size:0.9em; color:#555; margin-top:4px;">
-                Detected as: <strong>{{ p.document_type or 'Unknown document type' }}</strong>
-                {% if p.confidence is not none %}
-                    ({{ p.confidence }}% confidence)
-                {% endif %}
-            </div>
-            {% if p.reason %}
-            <div style="font-size:0.9em; color:#555; margin-top:4px;">
-                Reason: {{ p.reason }}
-            </div>
-            {% endif %}
-
-            <details style="margin-top:10px;" open>
-                <summary style="cursor:pointer; font-size:0.9em; font-weight:600;">
-                    Document content
-                    {% if p.is_image %}
-                        (image)
-                    {% elif p.char_count %}
-                        ({{ p.char_count }} characters read)
-                    {% endif %}
-                </summary>
-
-                {% if p.is_image %}
-                <div style="margin-top:8px;">
-                    <img src="{{ url_for('admin_invoice_upload_pending_image', stored_file_name=p.stored_file_name) }}"
-                         alt="Uploaded image preview"
-                         style="max-width:100%; max-height:320px; border:1px solid #e0e0e0;
-                                border-radius:6px; background:#fafafa;">
-                </div>
-                <div style="font-size:0.85em; color:#666; margin-top:6px;">
-                    This image was checked visually.
-                    {% if p.char_count %}
-                        {{ p.char_count }} characters of text were also read from it.
-                    {% else %}
-                        No readable text was found in it.
-                    {% endif %}
-                </div>
-
-                {% elif p.preview %}
-                <pre style="white-space:pre-wrap; word-break:break-word;
-                            max-height:300px; overflow-y:auto; margin-top:8px;
-                            padding:10px; background:#f7f7f7; border:1px solid #e0e0e0;
-                            border-radius:6px; font-size:0.82em; line-height:1.45;">{{ p.preview }}</pre>
-
-                {% if p.preview_truncated %}
-                <div style="font-size:0.85em; color:#666;">
-                    Showing the first {{ p.preview | length }} of {{ p.char_count }} characters.
-                    <a href="{{ url_for('admin_invoice_upload_pending_text', stored_file_name=p.stored_file_name) }}"
-                       target="_blank" rel="noopener">View full text →</a>
-                </div>
-                {% else %}
-                <div style="font-size:0.85em; color:#666;">
-                    <a href="{{ url_for('admin_invoice_upload_pending_text', stored_file_name=p.stored_file_name) }}"
-                       target="_blank" rel="noopener">Open in a new tab →</a>
-                </div>
-                {% endif %}
-
-                {% else %}
-                <p style="font-size:0.9em; color:#a00; margin-top:8px;">
-                    No text could be read from this document.
-                </p>
-                {% endif %}
-            </details>
-
-            {% if p.vendor_approved %}
-            <div style="font-size:0.9em; color:#0d6efd; margin-top:8px;">
-                You already chose to register
-                <strong>{{ p.vendor_name or 'this vendor' }}</strong>.
-                Proceeding will create that vendor and save this file as an invoice.
-                Stopping will not register the vendor.
-            </div>
-            {% endif %}
-
-            <form method="POST"
-                  action="{{ url_for('admin_invoice_upload_decide') }}"
-                  style="margin-top:10px; display:flex; gap:10px;">
-                <input type="hidden" name="stored_file_name" value="{{ p.stored_file_name }}">
-
-                <button type="submit" name="action" value="proceed"
-                        class="btn btn-warning btn-sm">
-                    Proceed anyway
-                </button>
-
-                <button type="submit" name="action" value="stop"
-                        class="btn btn-secondary btn-sm">
-                    Stop &amp; discard
                 </button>
             </form>
         </div>
@@ -255,9 +150,9 @@
                         {% if r.status == 'success' %}
                             <span style="color:green;">Extracted</span>
                         {% elif r.status == 'vendor_not_registered' %}
-                            <span style="color:#0d6efd;">New vendor — awaiting your decision</span>
+                            <span style="color:#0d6efd;">New vendor — register or stop</span>
                         {% elif r.status == 'not_invoice' %}
-                            <span style="color:#e0a800;">Not an invoice — awaiting your decision</span>
+                            <span style="color:#e0a800;">Not an invoice — sent to Rejected Documents</span>
                         {% elif r.status == 'incomplete_header' %}
                             <span style="color:#e0a800;">Held — missing vendor name</span>
                         {% elif r._extraction_error %}
