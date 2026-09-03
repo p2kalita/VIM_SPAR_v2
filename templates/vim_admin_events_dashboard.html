@@ -262,42 +262,6 @@
   .ev-modal-close:hover { color: #1e293b; }
   .ev-modal-body { padding: 22px 24px; }
 
-  /* Drawer / Action Panels */
-  .ev-btn-manual-edit-sm {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 12px; border-radius: 5px; font-size: 12.5px; font-weight: 600;
-    cursor: pointer; border: 1px solid #3b82f6; background: #eff6ff; color: #1d4ed8;
-    transition: all 0.15s ease;
-  }
-  .ev-btn-manual-edit-sm:hover {
-    background: #3b82f6; color: #fff; border-color: #2563eb;
-    box-shadow: 0 2px 6px rgba(59,130,246,0.25);
-  }
-
-  .ev-action-panel {
-    display: none; background: #f8fafc; border: 1px solid #cbd5e1;
-    border-radius: 8px; padding: 16px; margin-top: 10px; margin-bottom: 8px;
-    animation: ev-slide-down 0.2s ease-out;
-  }
-  .ev-action-panel.open { display: block; }
-  @keyframes ev-slide-down {
-    from { opacity: 0; transform: translateY(-8px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .ev-action-panel h3 { font-size: 13.5px; font-weight: 700; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
-  .ev-form-grid {
-    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px;
-  }
-  .ev-form-group { display: flex; flex-direction: column; gap: 4px; }
-  .ev-form-group.full { grid-column: span 2; }
-  .ev-form-group label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.04em; }
-  .ev-form-group input, .ev-form-group select, .ev-form-group textarea {
-    padding: 6px 10px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; outline: none;
-  }
-  .ev-form-group input:focus, .ev-form-group select:focus, .ev-form-group textarea:focus {
-    border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
-  }
-  .ev-panel-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
 
   .ev-modal-row { display: flex; gap: 14px; margin-bottom: 12px; font-size: 14px; }
   .ev-modal-row .k { min-width: 140px; color: #64748b; font-weight: 600; flex-shrink: 0; }
@@ -310,8 +274,94 @@
   }
   .ev-modal-footer {
     padding: 14px 24px; border-top: 1px solid #efefef;
-    display: flex; justify-content: flex-end; align-items: center;
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; flex-wrap: wrap;
   }
+  .ev-actions-bar-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    margin-bottom: 4px;
+    padding-top: 14px;
+    border-top: 1px solid #e2e8f0;
+  }
+  .ev-btn-fill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 18px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; border: 1px solid #1d4ed8; background: #2563eb; color: #ffffff;
+    transition: all 0.15s ease; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(37,99,235,0.25);
+  }
+  .ev-btn-fill:hover {
+    background: #1d4ed8; color: #ffffff; border-color: #1e40af;
+    box-shadow: 0 2px 6px rgba(29,78,216,0.35);
+  }
+  .ev-btn-pass {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 18px; border-radius: 6px; font-size: 13.5px; font-weight: 600;
+    cursor: pointer; border: 1px solid #15803d; background: #16a34a; color: #ffffff;
+    transition: all 0.15s ease; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(22,163,74,0.25);
+  }
+  .ev-btn-pass:hover {
+    background: #15803d; color: #ffffff; border-color: #166534;
+    box-shadow: 0 2px 6px rgba(21,128,61,0.35);
+  }
+  .ev-btn-pass.passed {
+    background: #94a3b8; color: #ffffff; border-color: #64748b; cursor: default;
+    box-shadow: none; opacity: 0.85;
+  }
+
+  /* ── Fill Single Missing Field Panel ──────────────── */
+  .ev-fill-panel {
+    background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px;
+    padding: 16px; margin-top: 16px; margin-bottom: 8px;
+    animation: ev-slide-down 0.2s ease-out;
+  }
+  @keyframes ev-slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ev-fill-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+  }
+  .ev-fill-title {
+    font-size: 13.5px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 6px;
+  }
+  .ev-fill-badge {
+    font-size: 11.5px; font-weight: 600; background: #fef3c7; color: #92400e;
+    border: 1px solid #fde68a; padding: 2px 10px; border-radius: 12px;
+  }
+  .ev-fill-row {
+    display: grid; grid-template-columns: 200px 1fr; gap: 12px; margin-bottom: 12px;
+  }
+  @media (max-width: 600px) {
+    .ev-fill-row { grid-template-columns: 1fr; }
+  }
+  .ev-fill-group { display: flex; flex-direction: column; gap: 4px; }
+  .ev-fill-group label { font-size: 11.5px; font-weight: 600; text-transform: uppercase; color: #64748b; letter-spacing: 0.04em; }
+  .ev-fill-group select, .ev-fill-group input {
+    padding: 7px 10px; font-size: 13.5px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; outline: none;
+  }
+  .ev-fill-group select:focus, .ev-fill-group input:focus {
+    border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+  }
+  .ev-fill-footer { display: flex; justify-content: flex-end; gap: 8px; }
+  .ev-fill-save-btn {
+    padding: 6px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; background: #2563eb; color: #fff; border: 1px solid #1d4ed8;
+    transition: background 0.15s;
+  }
+  .ev-fill-save-btn:hover { background: #1d4ed8; }
+  .ev-fill-cancel-btn {
+    padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500;
+    cursor: pointer; background: #fff; color: #475569; border: 1px solid #cbd5e1;
+    transition: background 0.15s;
+  }
+  .ev-fill-cancel-btn:hover { background: #f1f5f9; }
+
   .ev-close-btn {
     padding: 6px 18px; border-radius: 6px; font-size: 13px;
     cursor: pointer; font-weight: 600;
@@ -668,6 +718,149 @@ function evRenderFooter() {
 /* ── Detail Modal & Actions ── */
 let evCurrentDetail = null;
 
+const FIELD_META = {
+  po_number:      { label: 'PO Number', type: 'text', placeholder: 'e.g. PO-12345', key: 'po_number' },
+  due_date:       { label: 'Due Date', type: 'date', placeholder: '', key: 'due_date' },
+  invoice_amount: { label: 'Total / Gross Amount', type: 'number', placeholder: '0.00', step: '0.01', key: 'invoice_amount' },
+  net_amount:     { label: 'Net Amount', type: 'number', placeholder: '0.00', step: '0.01', key: 'net_amount' },
+  tax_amount:     { label: 'Tax Amount', type: 'number', placeholder: '0.00', step: '0.01', key: 'tax_amount' },
+  invoice_number: { label: 'Invoice Number', type: 'text', placeholder: 'e.g. INV-12345', key: 'invoice_number' },
+  payment_terms:  { label: 'Payment Terms', type: 'text', placeholder: 'e.g. Net 30, Due upon receipt', key: 'payment_terms' },
+};
+
+function evDetectMissingField(r) {
+  const inv = r.invoice_info || {};
+  const details = r.details || {};
+  const msg = (r.message || "").toLowerCase();
+  const vtype = (r.validation_type || "").toLowerCase();
+
+  // 1. Check explicit details.missing_fields
+  if (Array.isArray(details.missing_fields) && details.missing_fields.length > 0) {
+    const f = details.missing_fields[0];
+    if (FIELD_META[f]) return f;
+    if (f === 'total_due') return 'invoice_amount';
+    if (f === 'tax_total') return 'tax_amount';
+    if (f === 'subtotal') return 'net_amount';
+  }
+
+  // 2. Check message content & validation type
+  if (msg.includes('po number') || msg.includes('po_number') || vtype.includes('po')) return 'po_number';
+  if (msg.includes('due date') || msg.includes('due_date')) return 'due_date';
+  if (msg.includes('total due') || msg.includes('total amount') || msg.includes('total_due')) return 'invoice_amount';
+  if (msg.includes('tax')) return 'tax_amount';
+  if (msg.includes('net amount') || msg.includes('subtotal')) return 'net_amount';
+  if (msg.includes('invoice number') || msg.includes('invoice_number')) return 'invoice_number';
+
+  // 3. Inspect invoice_info for missing values
+  if (!inv.po_number) return 'po_number';
+  if (!inv.due_date) return 'due_date';
+  if (inv.invoice_amount === null || inv.invoice_amount === undefined) return 'invoice_amount';
+  if (inv.tax_amount === null || inv.tax_amount === undefined) return 'tax_amount';
+  if (inv.net_amount === null || inv.net_amount === undefined) return 'net_amount';
+  if (!inv.payment_terms) return 'payment_terms';
+
+  return 'po_number';
+}
+
+function evGetInvFieldValue(inv, key) {
+  if (!inv) return '';
+  if (key === 'invoice_amount') return (inv.invoice_amount !== null && inv.invoice_amount !== undefined) ? inv.invoice_amount : '';
+  if (key === 'net_amount') return (inv.net_amount !== null && inv.net_amount !== undefined) ? inv.net_amount : '';
+  if (key === 'tax_amount') return (inv.tax_amount !== null && inv.tax_amount !== undefined) ? inv.tax_amount : '';
+  if (key === 'due_date') return inv.due_date || '';
+  if (key === 'po_number') return inv.po_number || '';
+  if (key === 'invoice_number') return inv.invoice_number || '';
+  if (key === 'payment_terms') return inv.payment_terms || '';
+  return '';
+}
+
+function evToggleFillValue(forceState) {
+  const panel = document.getElementById("ev-fill-panel");
+  if (!panel) return;
+  const isCurrentlyOpen = panel.style.display !== "none";
+  const shouldOpen = forceState !== undefined ? forceState : !isCurrentlyOpen;
+  panel.style.display = shouldOpen ? "block" : "none";
+  if (shouldOpen) {
+    document.getElementById("ev-fill-field-val")?.focus();
+  }
+}
+
+function evOnFieldSelectChange() {
+  const select = document.getElementById("ev-fill-field-name");
+  const valInput = document.getElementById("ev-fill-field-val");
+  const valLabel = document.getElementById("ev-fill-val-label");
+  const badge = document.getElementById("ev-fill-badge");
+  if (!select || !valInput) return;
+
+  const meta = FIELD_META[select.value] || FIELD_META.po_number;
+  valInput.type = meta.type || 'text';
+  valInput.placeholder = meta.placeholder || '';
+  if (meta.step) valInput.step = meta.step; else valInput.removeAttribute('step');
+  if (valLabel) valLabel.textContent = `${meta.label} Value`;
+  if (badge) badge.textContent = `Field: ${meta.label}`;
+
+  const inv = (evCurrentDetail && evCurrentDetail.invoice_info) || {};
+  valInput.value = evGetInvFieldValue(inv, select.value);
+  valInput.focus();
+}
+
+async function evPassValidation(validationId) {
+  const vid = validationId || (evCurrentDetail ? evCurrentDetail.id : null);
+  if (!vid) return;
+
+  try {
+    const res = await fetch(`${EV_API}/override/${vid}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'PASSED', note: 'Marked as PASSED by admin' }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to pass validation');
+
+    evToast(`✅ Validation #${vid} status changed to PASSED!`);
+    await evOpenModal(null, vid);
+    await evLoadEvents();
+    await evUpdateCounts();
+  } catch (err) {
+    evToast(`⚠️ ${err.message}`, false);
+  }
+}
+
+async function evSubmitSingleValue(e, invoiceId, validationId) {
+  e.preventDefault();
+  const fieldSelect = document.getElementById("ev-fill-field-name");
+  const fieldValInput = document.getElementById("ev-fill-field-val");
+  if (!fieldSelect || !fieldValInput) return;
+
+  const fieldKey = fieldSelect.value;
+  const rawVal = fieldValInput.value.trim();
+
+  let payload = {};
+  if (['invoice_amount', 'net_amount', 'tax_amount'].includes(fieldKey)) {
+    payload[fieldKey] = rawVal ? parseFloat(rawVal) : null;
+  } else {
+    payload[fieldKey] = rawVal || null;
+  }
+
+  try {
+    const res = await fetch(`${EV_API}/edit_invoice/${invoiceId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to save value');
+
+    const meta = FIELD_META[fieldKey] || { label: fieldKey };
+    evToast(`✅ Field '${meta.label}' updated successfully!`);
+    evToggleFillValue(false);
+    await evOpenModal(null, validationId);
+    await evLoadEvents();
+  } catch (err) {
+    evToast(`⚠️ ${err.message}`, false);
+  }
+}
+
 async function evOpenModal(e, id) {
   if (e) e.stopPropagation();
   try {
@@ -680,7 +873,9 @@ async function evOpenModal(e, id) {
     const inv = r.invoice_info || {};
     const detailJson = r.details ? JSON.stringify(r.details, null, 2) : "{}";
 
-    const isFailed = (r.status || '').toUpperCase() === 'FAILED';
+    const detectedFieldKey = evDetectMissingField(r);
+    const detectedField = FIELD_META[detectedFieldKey] || FIELD_META.po_number;
+    const isPassed = (r.status || '').toUpperCase() === 'PASSED';
 
     document.getElementById("ev-modal-body").innerHTML = `
       <!-- Detail Rows -->
@@ -693,104 +888,68 @@ async function evOpenModal(e, id) {
         <span class="v"><span class="ev-badge ${evStatusClass(r.status)}">${evEscape(r.status || "—")}</span></span></div>
       <div class="ev-modal-row"><span class="k">Validation Date</span><span class="v mono">${evEscape(evFmt(r.validation_date))}</span></div>
       ${r.message ? `<div class="ev-modal-row"><span class="k">Message</span><span class="v" style="color:#b91c1c;font-weight:600;">${evEscape(r.message)}</span></div>` : ""}
+      
+      <!-- Action Buttons (Side by Side) -->
+      <div class="ev-actions-bar-row">
+        <button type="button" class="ev-btn-fill" id="ev-btn-fill-action" onclick="evToggleFillValue()">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+          </svg>
+          Fill values
+        </button>
+        <button type="button" class="ev-btn-pass ${isPassed ? 'passed' : ''}" id="ev-btn-pass-action" 
+                onclick="${isPassed ? '' : `evPassValidation(${r.id})`}" 
+                ${isPassed ? 'disabled' : ''}>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          ${isPassed ? 'Passed' : 'Pass'}
+        </button>
+      </div>
+
+      <!-- Fill Single Missing Field Form (toggled via Fill values button) -->
+      <div class="ev-fill-panel" id="ev-fill-panel" style="display:none;">
+        <div class="ev-fill-header">
+          <span class="ev-fill-title">✏️ Add Missing Field Value</span>
+          <span class="ev-fill-badge" id="ev-fill-badge">Missing: ${evEscape(detectedField.label)}</span>
+        </div>
+        <form id="ev-fill-form" onsubmit="evSubmitSingleValue(event, ${r.invoice_id}, ${r.id})">
+          <div class="ev-fill-row">
+            <div class="ev-fill-group">
+              <label for="ev-fill-field-name">Missing Field</label>
+              <select id="ev-fill-field-name" onchange="evOnFieldSelectChange()">
+                <option value="po_number" ${detectedFieldKey === 'po_number' ? 'selected' : ''}>PO Number</option>
+                <option value="due_date" ${detectedFieldKey === 'due_date' ? 'selected' : ''}>Due Date</option>
+                <option value="invoice_amount" ${detectedFieldKey === 'invoice_amount' ? 'selected' : ''}>Total / Gross Amount</option>
+                <option value="net_amount" ${detectedFieldKey === 'net_amount' ? 'selected' : ''}>Net Amount</option>
+                <option value="tax_amount" ${detectedFieldKey === 'tax_amount' ? 'selected' : ''}>Tax Amount</option>
+                <option value="invoice_number" ${detectedFieldKey === 'invoice_number' ? 'selected' : ''}>Invoice Number</option>
+                <option value="payment_terms" ${detectedFieldKey === 'payment_terms' ? 'selected' : ''}>Payment Terms</option>
+              </select>
+            </div>
+            <div class="ev-fill-group">
+              <label for="ev-fill-field-val" id="ev-fill-val-label">${evEscape(detectedField.label)} Value</label>
+              <input type="${detectedField.type}" id="ev-fill-field-val" 
+                     placeholder="${detectedField.placeholder || ''}" 
+                     ${detectedField.step ? `step="${detectedField.step}"` : ''} 
+                     value="${evGetInvFieldValue(inv, detectedFieldKey)}" required />
+            </div>
+          </div>
+          <div class="ev-fill-footer">
+            <button type="button" class="ev-fill-cancel-btn" onclick="evToggleFillValue(false)">Cancel</button>
+            <button type="submit" class="ev-fill-save-btn">Save Value</button>
+          </div>
+        </form>
+      </div>
+
       <div class="ev-modal-row" style="margin-top:14px;"><span class="k">Validation Details</span><span class="v"></span></div>
       <div class="ev-modal-payload">${evEscape(detailJson)}</div>
-
-      ${isFailed ? `
-      <!-- Manual Edit Section (shown only for Failed events, positioned right above Close button) -->
-      <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0;">
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
-          <button type="button" class="ev-btn-manual-edit-sm" onclick="evToggleEditPanel()">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-            Manual Edit Fields
-          </button>
-        </div>
-
-        <!-- Manual Edit Form Panel -->
-        <div class="ev-action-panel" id="ev-panel-edit">
-          <h3>✏️ Edit Invoice Fields</h3>
-          <form id="ev-edit-form" onsubmit="evSubmitManualEdit(event, ${r.invoice_id}, ${r.id})">
-            <div class="ev-form-grid">
-              <div class="ev-form-group">
-                <label>Invoice Number</label>
-                <input type="text" id="ev-edit-inv-num" value="${evEscape(inv.invoice_number || r.invoice_number || '')}" required />
-              </div>
-              <div class="ev-form-group">
-                <label>PO Number</label>
-                <input type="text" id="ev-edit-po-num" value="${evEscape(inv.po_number || '')}" placeholder="PO-XXXX" />
-              </div>
-              <div class="ev-form-group">
-                <label>Total / Gross Amount</label>
-                <input type="number" step="0.01" id="ev-edit-amount" value="${inv.invoice_amount !== null && inv.invoice_amount !== undefined ? inv.invoice_amount : ''}" />
-              </div>
-              <div class="ev-form-group">
-                <label>Net Amount</label>
-                <input type="number" step="0.01" id="ev-edit-net" value="${inv.net_amount !== null && inv.net_amount !== undefined ? inv.net_amount : ''}" />
-              </div>
-              <div class="ev-form-group">
-                <label>Tax Amount</label>
-                <input type="number" step="0.01" id="ev-edit-tax" value="${inv.tax_amount !== null && inv.tax_amount !== undefined ? inv.tax_amount : ''}" />
-              </div>
-              <div class="ev-form-group">
-                <label>Due Date</label>
-                <input type="date" id="ev-edit-due-date" value="${inv.due_date || ''}" />
-              </div>
-              <div class="ev-form-group full">
-                <label>Payment Terms</label>
-                <input type="text" id="ev-edit-terms" value="${evEscape(inv.payment_terms || '')}" placeholder="e.g. Net 30, Due upon receipt" />
-              </div>
-            </div>
-            <div class="ev-panel-btns">
-              <button type="button" class="ev-close-btn" onclick="evToggleEditPanel()">Cancel</button>
-              <button type="submit" class="ev-btn-manual-edit-sm" style="background:#2563eb;color:#fff;border-color:#1d4ed8;padding:6px 16px;">Save Changes</button>
-            </div>
-          </form>
-        </div>
-      </div>
-      ` : ''}
     `;
+
     document.getElementById("ev-modal").classList.add("open");
   } catch (err) {
     evToast("Failed to fetch validation detail.", false);
-  }
-}
-
-function evToggleEditPanel() {
-  const editPanel = document.getElementById("ev-panel-edit");
-  editPanel?.classList.toggle('open');
-}
-
-/* ── Manual Edit Submission ── */
-async function evSubmitManualEdit(e, invoiceId, validationId) {
-  e.preventDefault();
-  const payload = {
-    invoice_number: document.getElementById("ev-edit-inv-num")?.value.trim(),
-    po_number:      document.getElementById("ev-edit-po-num")?.value.trim(),
-    invoice_amount: document.getElementById("ev-edit-amount")?.value ? parseFloat(document.getElementById("ev-edit-amount").value) : null,
-    net_amount:     document.getElementById("ev-edit-net")?.value ? parseFloat(document.getElementById("ev-edit-net").value) : null,
-    tax_amount:     document.getElementById("ev-edit-tax")?.value ? parseFloat(document.getElementById("ev-edit-tax").value) : null,
-    due_date:       document.getElementById("ev-edit-due-date")?.value || null,
-    payment_terms:  document.getElementById("ev-edit-terms")?.value.trim(),
-  };
-
-  try {
-    const res = await fetch(`${EV_API}/edit_invoice/${invoiceId}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Edit failed");
-
-    evToast("✅ Invoice fields updated successfully!");
-    evToggleEditPanel();
-    evOpenModal(null, validationId);
-    evLoadEvents();
-  } catch (err) {
-    evToast(`⚠️ ${err.message}`, false);
   }
 }
 
