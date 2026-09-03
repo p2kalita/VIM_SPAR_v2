@@ -1,5 +1,6 @@
 from importlib.resources import files
 import mimetypes
+import os
 import time
 from pathlib import Path
 from datetime import datetime
@@ -1757,7 +1758,12 @@ def register_routes(app):
                     try:
                         import google.generativeai as _genai
                         from PIL import Image as _Image
-                        _gemini_key = os.environ.get("GEMINI_API_KEY", "")
+                        from vim.extraction import config as _ext_config
+
+                        _gemini_key = (
+                            os.environ.get("GEMINI_API_KEY", "")
+                            or _ext_config.read_gemini_key()
+                        )
                         if _gemini_key:
                             _genai.configure(api_key=_gemini_key)
                             img = _Image.open(_io.BytesIO(content))
