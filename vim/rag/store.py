@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import chromadb
+from chromadb.config import DEFAULT_DATABASE, DEFAULT_TENANT, Settings
 from chromadb.utils import embedding_functions
 from dotenv import load_dotenv
 from vim_logger import get_logger
@@ -18,7 +19,19 @@ load_dotenv(_ROOT / ".env")
 # ── Configuration ──────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
-CHROMA_PERSIST_DIR = os.getenv("CHROMA_PERSIST_DIR", str(_ROOT / "chroma_db"))
+
+
+def _resolve_chroma_dir() -> str:
+    raw = (os.getenv("CHROMA_PERSIST_DIR") or "").strip() or "chroma_db"
+    path = Path(raw)
+    if not path.is_absolute():
+        path = _ROOT / path
+    path = path.resolve()
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path)
+
+
+CHROMA_PERSIST_DIR = _resolve_chroma_dir()
 CHROMA_COLLECTION_NAME = os.getenv("CHROMA_COLLECTION_NAME", "invoices_rag")
 EMBED_MODEL_NAME = os.getenv("EMBED_MODEL_NAME", "BAAI/bge-small-en-v1.5")
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "512"))
@@ -34,7 +47,28 @@ FILENAME_KEY = "filename"
 def _get_chroma_client() -> chromadb.ClientAPI:
     """Return a single shared PersistentClient to prevent SQLite locking issues."""
     logger.info("[RAG-STORE] Creating PersistentClient at path='%s'", CHROMA_PERSIST_DIR)
-    return chromadb.PersistentClient(path=CHROMA_PERSIST_DIR)
+    try:
+        return _open_chroma(CHROMA_PERSIST_DIR)
+    except BaseException as e:
+        if isinstance(e, (KeyboardInterrupt, SystemExit)):
+            raise
+        logger.warning("[RAG-STORE] PersistentClient failed (%s); retrying with a fresh store", e)
+        import shutil
+
+        persist = Path(CHROMA_PERSIST_DIR)
+        if persist.exists():
+            shutil.rmtree(persist, ignore_errors=True)
+        persist.mkdir(parents=True, exist_ok=True)
+        return _open_chroma(str(persist))
+
+
+def _open_chroma(path: str) -> chromadb.ClientAPI:
+    return chromadb.PersistentClient(
+        path=path,
+        tenant=DEFAULT_TENANT,
+        database=DEFAULT_DATABASE,
+        settings=Settings(anonymized_telemetry=False, allow_reset=True),
+    )
 
 
 @lru_cache(maxsize=1)
