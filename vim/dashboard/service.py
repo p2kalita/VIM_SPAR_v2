@@ -19,6 +19,20 @@ logger = get_logger("vim.dashboard.service")
 
 _MIN_REAL_DATE = date(2000, 1, 1)
 _CLOSED_STATUSES = ("rejected",)
+_STATUS_ORDER = ("Pending Approval", "Approved", "Rejected")
+
+
+def _canonical_status(status):
+    key = (status or "").strip().lower()
+    if key in ("approved", "paid"):
+        return "Approved"
+    if key in ("rejected", "failed"):
+        return "Rejected"
+    if key in ("pending approval", "pending", "overdue"):
+        return "Pending Approval"
+    if not status:
+        return "Other"
+    return str(status).strip().title()
 
 
 def _decimal_to_float(value):
@@ -27,15 +41,6 @@ def _decimal_to_float(value):
     if isinstance(value, Decimal):
         return float(value)
     return float(value)
-
-
-def _count_status(status_counts, *names):
-    wanted = {name.lower() for name in names}
-    return sum(
-        count
-        for status, count in status_counts.items()
-        if (status or "").lower() in wanted
-    )
 
 
 def _is_open_invoice():
@@ -66,11 +71,21 @@ def get_dashboard_metrics():
         .group_by(Invoice.InvoiceStatus)
         .all()
     )
-    status_counts = {status: count for status, count in status_rows}
+    raw_counts = {}
+    for status, count in status_rows:
+        label = _canonical_status(status)
+        raw_counts[label] = raw_counts.get(label, 0) + count
+    status_counts = {
+        name: raw_counts[name]
+        for name in _STATUS_ORDER
+        if name in raw_counts
+    }
+    for name, count in raw_counts.items():
+        status_counts.setdefault(name, count)
 
-    pending_approval = _count_status(status_counts, "Pending Approval")
-    approved = _count_status(status_counts, "Approved")
-    rejected = _count_status(status_counts, "Rejected")
+    pending_approval = status_counts.get("Pending Approval", 0)
+    approved = status_counts.get("Approved", 0)
+    rejected = status_counts.get("Rejected", 0)
 
     total_value = (
         Invoice.query.with_entities(func.coalesce(func.sum(Invoice.InvoiceAmount), 0)).scalar()
