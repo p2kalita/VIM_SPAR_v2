@@ -998,7 +998,7 @@ def register_routes(app):
             keys_ok=keys_ok,
             gemini_ok=bool(extraction_config.read_gemini_key()),
             gemini_model=extraction_config.GEMINI_MODEL,
-            pending_not_invoice=_pending_with_content(),
+            pending_not_invoice=[],
             pending_new_vendor=_pending_new_vendors(),
         )
 
@@ -1058,7 +1058,7 @@ def register_routes(app):
             )
 
         _flash_vendor_registrations(results)
-        _remember_pending_not_invoice(results)
+        _flash_not_invoices(results)
         _remember_pending_new_vendor(results)
 
         from vim.extraction import config as extraction_config
@@ -1069,7 +1069,7 @@ def register_routes(app):
             keys_ok=True,
             gemini_ok=bool(extraction_config.read_gemini_key()),
             gemini_model=extraction_config.GEMINI_MODEL,
-            pending_not_invoice=_pending_with_content(),
+            pending_not_invoice=[],
             elapsed_seconds=job.get("elapsed_seconds"),
             pending_new_vendor=_pending_new_vendors(),
         )
@@ -1130,33 +1130,22 @@ def register_routes(app):
                 "info",
             )
 
-    def _remember_pending_not_invoice(records):
-        """Queue classifier-rejected uploads for an explicit user decision."""
-        incoming = [
-            {
-                "file_name": r.get("file_name"),
-                "stored_file_name": r.get("stored_file_name"),
-                "document_type": r.get("_document_type"),
-                "reason": r.get("_not_invoice_reason"),
-                "confidence": (r.get("_classification") or {}).get("confidence"),
-                "vendor_approved": bool(r.get("_vendor_approved")),
-                "vendor_name": r.get("vendor_name"),
-            }
-            for r in records
-            if r.get("status") == "not_invoice" and r.get("stored_file_name")
+    def _flash_not_invoices(records):
+        """Non-invoices are stored in Rejected Documents; no proceed prompt."""
+        held = [
+            r for r in records
+            if r.get("status") == "not_invoice"
         ]
-        if not incoming:
+        if not held:
             return
-
-        existing = {
-            p.get("stored_file_name"): p
-            for p in (session.get("pending_not_invoice") or [])
-            if p.get("stored_file_name")
-        }
-        for item in incoming:
-            existing[item["stored_file_name"]] = item
-        session["pending_not_invoice"] = list(existing.values())
-        session.modified = True
+        names = ", ".join(
+            (r.get("file_name") or "document") for r in held
+        )
+        flash(
+            f"{len(held)} file(s) were not recognised as invoices ({names}). "
+            "They were moved to Rejected Documents. Vendor matching was skipped.",
+            "warning",
+        )
 
     def _remember_pending_new_vendor(records):
         """Queue unknown-vendor invoices for an explicit register-or-stop decision."""
@@ -1406,7 +1395,10 @@ def register_routes(app):
                         vendor_name, original_name)
             try:
                 record = persist_approved_vendor(
-                    stored_name, original_name, user_id=session.get("user_id")
+                    stored_name,
+                    original_name,
+                    user_id=session.get("user_id"),
+                    skip_invoice_check=True,
                 )
             except Exception as e:
                 logger.error("[VENDOR-DECIDE] Failed to persist vendor '%s': %s", vendor_name, e, exc_info=True)
@@ -1419,11 +1411,9 @@ def register_routes(app):
                     "[VENDOR-DECIDE] Vendor '%s' approved but '%s' is not an invoice",
                     vendor_name, original_name,
                 )
-                _remember_pending_not_invoice([record])
                 flash(
-                    f"You chose to register '{vendor_name}', but '{original_name}' "
-                    "was not recognised as an invoice. Choose whether to proceed "
-                    "anyway or stop. The vendor will only be created if you proceed.",
+                    f"'{original_name}' is not an invoice, so '{vendor_name}' "
+                    "was not registered. The file was moved to Rejected Documents.",
                     "warning",
                 )
             elif invoice_id is None:

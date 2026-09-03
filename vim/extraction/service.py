@@ -2,7 +2,6 @@
 
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from uuid import uuid4
 
@@ -12,7 +11,7 @@ from vim.extraction import config
 from vim.extraction.classifier import (
     classify_document,
     classify_image,
-    purchase_order_hold_reason,
+    non_invoice_hold_reason,
 )
 from vim.extraction.enrich import extract_from_file, load_document_text
 from vim.extraction.load import insert_record
@@ -204,15 +203,13 @@ def process_uploaded_file(file_storage) -> dict:
     """
     Full intelligent upload pipeline:
     1. Save file
-    2. Confirm the document is an invoice (Gemini gate), in parallel with
-       extracting it (LlamaParse + Groq)
-    3. Validate
-    4. Resolve the vendor, registering it when it is new
-    5. Save to output/enriched.json
-    6. Persist to VIM database (skipped when extraction fails)
+    2. Gemini decides whether the document is an invoice
+    3. Only invoices are extracted and checked against registered vendors
+    4. Save to output/enriched.json and the VIM database
  
     A document the classifier rejects comes back with status "not_invoice"
     and is left on disk so the user can choose to proceed or discard it.
+    Vendor matching is not run on those files.
     """
     saved_path, original_name = stage_upload(file_storage)
     return process_saved_file(saved_path, original_name)
@@ -240,90 +237,85 @@ def process_saved_file(
         logger.info("[PIPELINE] '%s' | %s (%.1fs)", original_name, step, elapsed)
 
     is_image = saved_path.suffix.lower() in config.IMAGE_EXTENSIONS
- 
-    # Images are judged from the pixels and extracted by vision, so OCR is
-    # skipped entirely. LlamaParse on a PNG is the slowest path we have.
-    if is_image:
-        if not skip_invoice_check:
+    raw_text = ""
+
+    # 1. Gemini invoice gate — vendor matching runs only after this passes.
+    if not skip_invoice_check:
+        if is_image:
             _log("classifying image")
             verdict = classify_image(saved_path, original_name)
-            if verdict.get("error"):
-                logger.warning("[CLASSIFY] image classification unavailable for '%s': %s",
-                               original_name, verdict["error"])
-            elif verdict.get("is_invoice") is False:
-                record = _not_invoice_result(
-                    original_name=original_name,
-                    saved_path=saved_path,
-                    raw_text="",
-                    verdict=verdict,
-                )
-                return _hold_as_rejected(record, "not_invoice")
- 
-        _log("extracting image")
-        record = extract_from_file(str(saved_path), raw_text=None)
-        record["file_name"] = original_name
-        record["stored_file_name"] = saved_path.name
-        if record.get("_extraction_error"):
+        else:
+            _log("parsing text")
+            raw_text, parse_error = load_document_text(str(saved_path))
+            if parse_error:
+                logger.error("[PIPELINE] text parse failed for '%s': %s", original_name, parse_error)
+                record = empty_record()
+                record["file_name"] = original_name
+                record["stored_file_name"] = saved_path.name
+                record["file_path"] = str(saved_path)
+                record["_extraction_error"] = parse_error
+                record["status"] = "extraction_failed"
+                upsert_record(record)
+                return record
+            _log("classifying document")
+            verdict = classify_document(raw_text, original_name)
+
+        if verdict.get("error"):
+            logger.warning(
+                "[CLASSIFY] classification unavailable for '%s': %s — continuing",
+                original_name, verdict["error"],
+            )
+        elif verdict.get("is_invoice") is False:
+            logger.info(
+                "[PIPELINE] '%s' is not an invoice (%s) — skipping vendor check",
+                original_name, verdict.get("document_type"),
+            )
+            record = _not_invoice_result(
+                original_name=original_name,
+                saved_path=saved_path,
+                raw_text=raw_text,
+                verdict=verdict,
+            )
+            return _hold_as_rejected(record, "not_invoice")
+
+    elif not is_image:
+        _log("parsing text")
+        raw_text, parse_error = load_document_text(str(saved_path))
+        if parse_error:
+            logger.error("[PIPELINE] text parse failed for '%s': %s", original_name, parse_error)
+            record = empty_record()
+            record["file_name"] = original_name
+            record["stored_file_name"] = saved_path.name
+            record["file_path"] = str(saved_path)
+            record["_extraction_error"] = parse_error
             record["status"] = "extraction_failed"
             upsert_record(record)
             return record
-        if not skip_invoice_check:
-            held = _hold_if_purchase_order(record, original_name, saved_path)
-            if held is not None:
-                return held
-        return _persist_record(record, original_name, saved_path)
- 
-    _log("parsing text")
-    raw_text, parse_error = load_document_text(str(saved_path))
-    if parse_error:
-        logger.error("[PIPELINE] text parse failed for '%s': %s", original_name, parse_error)
-        record = empty_record()
-        record["file_name"] = original_name
-        record["stored_file_name"] = saved_path.name
-        record["file_path"] = str(saved_path)
-        record["_extraction_error"] = parse_error
-        record["status"] = "extraction_failed"
-        upsert_record(record)
-        return record
- 
-    # Classification and extraction both need only raw_text, so they run
-    # concurrently instead of one after the other. The cost is an extraction
-    # call wasted on the rare document that turns out not to be an invoice;
-    # the saving is the classifier's latency on every document that is one.
-    if not skip_invoice_check:
-        _log("classifying + extracting in parallel")
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            verdict_task = pool.submit(classify_document, raw_text, original_name)
-            record_task = pool.submit(
-                extract_from_file, str(saved_path), raw_text=raw_text
-            )
-            verdict = verdict_task.result()
-            record = record_task.result()
- 
-        # A classifier outage must not block the pipeline; note it and continue.
-        if verdict.get("error"):
-            logger.warning("[CLASSIFY] text classification unavailable for '%s': %s",
-                           original_name, verdict["error"])
-        elif verdict.get("is_invoice") is False:
-            record["raw_text"] = raw_text
-            return _hold_not_invoice_keep_extraction(
-                record, original_name, saved_path, verdict
-            )
+
+    # 2. Invoice confirmed (or check skipped) — extract, then vendor names.
+    if is_image:
+        _log("extracting image")
+        record = extract_from_file(str(saved_path), raw_text=None)
     else:
         _log("extracting")
         record = extract_from_file(str(saved_path), raw_text=raw_text)
 
     record["file_name"] = original_name
     record["stored_file_name"] = saved_path.name
-    if not record.get("raw_text"):
+    if not record.get("raw_text") and raw_text:
         record["raw_text"] = raw_text
+
+    if record.get("_extraction_error"):
+        record["status"] = "extraction_failed"
+        upsert_record(record)
+        return record
 
     if not skip_invoice_check:
         held = _hold_if_purchase_order(record, original_name, saved_path)
         if held is not None:
             return held
 
-    _log("persisting")
+    _log("checking vendor")
     record = _persist_record(record, original_name, saved_path)
     _log(f"done status={record.get('status')}")
     return record
@@ -336,18 +328,19 @@ def _hold_if_purchase_order(
     *,
     vendor_approved: bool = False,
 ):
-    """Hold a PO for proceed/stop instead of saving it as an invoice."""
-    reason = purchase_order_hold_reason(record)
-    if not reason:
+    """Hold a PO, prescription, or retail receipt instead of saving an invoice."""
+    held = non_invoice_hold_reason(record)
+    if not held:
         return None
 
-    logger.info("[PIPELINE] '%s' held as purchase order: %s", original_name, reason)
-    record["document_type"] = record.get("document_type") or "Purchase Order"
+    reason, document_type = held
+    logger.info("[PIPELINE] '%s' held as not an invoice: %s", original_name, reason)
+    record["document_type"] = record.get("document_type") or document_type
     if record.get("document_type_code") == 0:
         record["document_type_code"] = 3
     verdict = {
         "is_invoice": False,
-        "document_type": "Purchase Order",
+        "document_type": document_type,
         "confidence": 95,
         "reason": reason,
     }

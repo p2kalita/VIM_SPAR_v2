@@ -47,13 +47,19 @@ _RESPONSE_SCHEMA = {
 _CRITERIA = """
 Decide whether this document is a VENDOR INVOICE or an equivalent billable
 document (invoice, bill, bill of supply, tax invoice, credit note, debit note,
-utility/telecom statement).
+utility/telecom statement sent to a company accounts-payable team).
 
-It is NOT an invoice if it is a purchase order (PO), quote, sales order,
-contract, resume, report, presentation, specification, email, letter,
-screenshot, photograph, logo, chart, bank statement, marketing material,
-or any other document that does not request payment for goods or services
-already (or being) supplied.
+It is NOT an invoice if it is any of:
+- a medical or pharmacy PRESCRIPTION, RX slip, or RX copay
+- a retail / pharmacy till receipt or card-terminal (chip/debit/credit) receipt
+- a purchase order (PO), quote, sales order
+- a contract, resume, report, presentation, specification, email, letter
+- a screenshot, photograph, logo, chart, bank statement, marketing material
+- any other document that does not request payment from a company for goods
+  or services already (or being) supplied on a vendor invoice
+
+A pharmacy "combined sale", prescription, or card-chip receipt is a consumer
+checkout slip, not a vendor invoice, even if it has line items and amounts.
 
 A purchase order is a buyer's request to supply goods or services. It is
 not a vendor invoice even if it has line items, amounts, a "Sales Invoice
@@ -62,12 +68,14 @@ Template" header, or the word "invoice" on the page.
 Rules:
 - Base the decision only on the content shown.
 - Mentioning the words "invoice" or "payment" is not enough on its own; look
-  for a real billing structure such as an invoice number, billed amounts,
-  line items, or a payment request.
+  for a real vendor-invoice structure such as an invoice number, billed
+  amounts, line items, or a payment request to an AP department.
+- If the document is a prescription, RX copay, or POS/card receipt, it is
+  not an invoice — even when it shows a store name, totals, and tax.
 - If the document is titled PURCHASE ORDER, or it has a PO number but no
   invoice number and no invoice date, it is not an invoice.
-- "document_type" is a short human-readable label, e.g. "Tax Invoice" or
-  "Purchase Order" or "Photograph".
+- "document_type" is a short human-readable label, e.g. "Tax Invoice",
+  "Purchase Order", "Prescription", or "Retail receipt".
 - "confidence" is an integer from 0 to 100.
 - "reason" is one short sentence explaining the decision.
 """.strip()
@@ -300,6 +308,9 @@ def classify_image(file_path, file_name: str = "") -> dict:
 _PO_HEADING = re.compile(r"(?im)^\s*purchase\s+order\s*$")
 _PO_IN_TYPE = re.compile(r"purchase\s*order|\bpo\b", re.I)
 _PO_FILENAME = re.compile(r"(?i)(^|[^a-z0-9])po[-_\s.]")
+_PRESCRIPTION_FILE = re.compile(r"(?i)prescription|\brx[-_\s.]")
+_RX_ITEM = re.compile(r"(?i)\b(rx\s*copay|prescription|rx\s*#)\b")
+_POS_EXTRA_KEYS = {"card_entry", "card_type", "card_number"}
 
 
 def purchase_order_hold_reason(record: dict) -> str | None:
@@ -330,6 +341,69 @@ def purchase_order_hold_reason(record: dict) -> str | None:
 
     if _PO_FILENAME.search(Path(file_name).name) and not invoice_number:
         return "The file is named as a purchase order and has no invoice number."
+
+    return None
+
+
+def non_invoice_hold_reason(record: dict) -> tuple[str, str] | None:
+    """
+    Hold reason when extraction shows a non-invoice (PO, prescription, POS
+    receipt) even if Gemini first called it an invoice.
+
+    Returns (reason, document_type_label) or None.
+    """
+    po_reason = purchase_order_hold_reason(record)
+    if po_reason:
+        return po_reason, "Purchase Order"
+
+    invoice_number = str(record.get("invoice_number") or "").strip()
+    document_type = str(record.get("document_type") or "").strip()
+    type_lower = document_type.lower()
+    file_name = str(record.get("file_name") or record.get("stored_file_name") or "")
+    extra = record.get("extra_fields") or {}
+    extra_keys = {str(k).lower() for k in extra}
+    extra_text = " ".join(str(v) for v in extra.values()).lower()
+    item_text = " ".join(
+        str(item.get("description") or "")
+        for item in (record.get("line_items") or [])
+        if isinstance(item, dict)
+    )
+
+    if _PRESCRIPTION_FILE.search(Path(file_name).name):
+        return (
+            "The file is a prescription, not a vendor invoice.",
+            "Prescription",
+        )
+
+    if "prescription" in type_lower:
+        return (
+            f"Document type is '{document_type}', not a vendor invoice.",
+            document_type or "Prescription",
+        )
+
+    if _RX_ITEM.search(item_text) and not invoice_number:
+        return (
+            "This looks like a pharmacy prescription or RX copay slip, "
+            "not a vendor invoice.",
+            "Prescription / pharmacy receipt",
+        )
+
+    looks_pos = bool(_POS_EXTRA_KEYS & extra_keys) or "chip" in extra_text
+    if looks_pos and not invoice_number:
+        return (
+            "This looks like a card-terminal or retail receipt, "
+            "not a vendor invoice.",
+            "Retail receipt",
+        )
+
+    if (
+        ("pharmacy" in type_lower or "combined sale" in type_lower)
+        and not invoice_number
+    ):
+        return (
+            f"Document type is '{document_type}' with no invoice number.",
+            document_type or "Pharmacy receipt",
+        )
 
     return None
 
