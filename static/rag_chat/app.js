@@ -78,13 +78,13 @@ function setGreeting() {
     }
 
     const el = document.getElementById('welcome-heading');
-    if (el) el.textContent = `Good ${period}, Partha`;
+    if (el) el.textContent = `Good ${period}`;
   } catch (_) {
     // Fallback if Intl is unavailable
     const h = new Date().getHours();
     const period = (h >= 12 && h < 17) ? 'afternoon' : (h >= 17 || h < 4) ? 'evening' : 'morning';
     const el = document.getElementById('welcome-heading');
-    if (el) el.textContent = `Good ${period}, Partha`;
+    if (el) el.textContent = `Good ${period}`;
   }
 }
 

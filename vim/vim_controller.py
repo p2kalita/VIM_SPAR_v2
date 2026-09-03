@@ -1704,7 +1704,7 @@ def register_routes(app):
             period = "afternoon"
         else:
             period = "evening"
-        greeting = f"Good {period}, Partha"
+        greeting = f"Good {period}"
         logger.info("[RAG-WEB] Loaded AI Assistant page (greeting='%s')", greeting)
         return render_template('vim_rag_assistant.html', greeting=greeting)
 
@@ -2214,6 +2214,8 @@ def register_routes(app):
                     rec['due_date'] = str(data['due_date'])
                 if 'payment_terms' in data:
                     rec['payment_terms'] = str(data['payment_terms'])
+                if 'po_number' in data and data['po_number']:
+                    rec['po_number'] = str(data['po_number']).strip()
                 updated_in_json = True
                 break
 
