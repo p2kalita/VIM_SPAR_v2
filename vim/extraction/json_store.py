@@ -52,8 +52,13 @@ def save_all(records: list[dict]) -> Path:
  
  
 def _record_key(record: dict) -> str | None:
-    """Stable key for deduplication — prefer original upload filename."""
-    return record.get("file_name") or record.get("stored_file_name") or record.get("file_path")
+    """Stable key for one upload.
+
+    stored_file_name is unique per upload (uuid + original name). Keying by
+    original file_name collapsed a bulk batch of similarly named files onto
+    one JSON record, so validation only ran for the last file.
+    """
+    return record.get("stored_file_name") or record.get("file_name") or record.get("file_path")
  
  
 def _dedupe_records(records: list[dict]) -> list[dict]:
@@ -111,7 +116,7 @@ def find_by_stored_name(stored_file_name: str) -> dict | None:
  
  
 def upsert_record(record: dict) -> Path:
-    """Insert or update one record in enriched.json (matched by file_name)."""
+    """Insert or update one record in enriched.json (matched by stored file)."""
     key = _record_key(record)
     logger.debug("[JSON_STORE] Upserting record key='%s' (status='%s')", key, record.get("status"))
  

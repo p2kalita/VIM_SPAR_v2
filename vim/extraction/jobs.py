@@ -10,10 +10,12 @@ enough for a single-process POC; a multi-worker deployment would need the job
 table in the database instead.
 """
 
+import json
 import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from vim_logger import get_logger
 
 logger = get_logger("vim.extraction.jobs")
@@ -27,6 +29,8 @@ JOB_RETENTION_SECONDS = 3600
 
 _jobs: dict[str, dict] = {}
 _lock = threading.Lock()
+_last_completed_invoice_ids: list[int] = []
+_BATCH_FILE = Path(__file__).resolve().parents[2] / "instance" / "last_validation_batch.json"
 
 
 def create_job(saved_files: list[tuple]) -> str:
@@ -63,6 +67,35 @@ def get_job(job_id: str) -> dict | None:
     with _lock:
         job = _jobs.get(job_id)
         return _snapshot(job) if job else None
+
+
+def get_last_completed_invoice_ids() -> list[int]:
+    """Invoice IDs from the most recent finished bulk upload.
+
+    Memory is preferred; the instance file survives a server restart so
+    Invoice Validation still shows the last batch.
+    """
+    with _lock:
+        if _last_completed_invoice_ids:
+            return list(_last_completed_invoice_ids)
+    try:
+        data = json.loads(_BATCH_FILE.read_text(encoding="utf-8"))
+        return [int(i) for i in data.get("invoice_ids") or []]
+    except Exception:
+        return []
+
+
+def _persist_last_ids(invoice_ids: list[int]) -> None:
+    global _last_completed_invoice_ids
+    _last_completed_invoice_ids = list(invoice_ids)
+    try:
+        _BATCH_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _BATCH_FILE.write_text(
+            json.dumps({"invoice_ids": invoice_ids}),
+            encoding="utf-8",
+        )
+    except Exception:
+        logger.exception("[JOBS] Could not persist last validation batch IDs")
 
 
 def start_job(app, job_id: str, saved_files: list[tuple]) -> None:
@@ -156,9 +189,9 @@ def _finish_job(app, job_id: str) -> None:
             return
         results = list(job["results"])
 
-    invoice_ids = [
+    invoice_ids = list(dict.fromkeys(
         int(r["invoice_id"]) for r in results if r.get("invoice_id") is not None
-    ]
+    ))
 
     validation_error = None
     if invoice_ids:
@@ -183,6 +216,8 @@ def _finish_job(app, job_id: str) -> None:
         job["elapsed_seconds"] = round(job["completed_at"] - job["created_at"], 1)
         job["invoice_ids"] = invoice_ids
         job["validation_error"] = validation_error
+        if invoice_ids:
+            _persist_last_ids(invoice_ids)
 
 
 def _prune_locked() -> None:

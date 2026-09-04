@@ -184,7 +184,15 @@ def insert_record(record: dict) -> Invoice:
         IFSCCode=_fit(record, "ifsc_code", 20),
     )
  
-    existing_doc = InvoiceDocument.query.filter_by(FileName=file_name).first()
+    # Match this physical upload, not every file that shares an original name.
+    # Bulk batches often repeat "invoice.pdf"; matching on FileName alone
+    # overwrote one invoice row and left validation looking like a single file.
+    storage_path = (record.get("file_path") or "").strip()
+    existing_doc = (
+        InvoiceDocument.query.filter_by(StoragePath=storage_path).first()
+        if storage_path
+        else None
+    )
  
     if existing_doc:
         invoice = db.session.get(Invoice, existing_doc.InvoiceID)

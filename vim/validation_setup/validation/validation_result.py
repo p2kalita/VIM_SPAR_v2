@@ -11,7 +11,12 @@ def save_validation_results(invoice, validation_result):
     """
 
     invoice_id = invoice.InvoiceID
-    invoice_number = validation_result.get("invoice_number")
+    invoice_number = (
+        validation_result.get("invoice_number")
+        or getattr(invoice, "InvoiceNumber", None)
+        or f"INV-{invoice_id}"
+    )
+    invoice_number = str(invoice_number).strip()[:100] or f"INV-{invoice_id}"
 
     results = validation_result.get(
         "validation_results",

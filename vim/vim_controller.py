@@ -1086,6 +1086,13 @@ def register_routes(app):
         if not job:
             return jsonify({"status": "expired"}), 404
 
+        # The progress page polls this endpoint; stamp the batch IDs onto
+        # the session here so Invoice Validation is populated even if the
+        # user leaves the progress screen before the final redirect.
+        if job["status"] == "complete" and job.get("invoice_ids"):
+            session["current_invoice_ids"] = list(job["invoice_ids"])
+            session.modified = True
+
         elapsed = round(time.time() - job["created_at"], 1)
         return jsonify({
             "status": job["status"],
@@ -1647,46 +1654,148 @@ def register_routes(app):
     @app.route('/admin/invoice_validation', methods=['GET'])
     @admin_required
     def admin_invoice_validation():
-    # --------------------------------------------------
-    # GET ONLY THE LATEST UPLOADED INVOICE IDS
-    # --------------------------------------------------
-        current_invoice_ids = session.get(
-            "current_invoice_ids",[])
+        from collections import OrderedDict
+        from vim.extraction import jobs
 
-        print(
-            "Invoice Validation - current invoice IDs:",current_invoice_ids)
+        def _coerce_ids(values):
+            ids = []
+            for value in values or []:
+                try:
+                    ids.append(int(value))
+                except (TypeError, ValueError):
+                    continue
+            return list(dict.fromkeys(ids))
 
-    # --------------------------------------------------
-    # NO CURRENT UPLOAD
-    # --------------------------------------------------
+        # Last bulk batch wins over a stale one-invoice session cookie.
+        current_invoice_ids = (
+            jobs.get_last_completed_invoice_ids()
+            or _coerce_ids(session.get("current_invoice_ids"))
+        )
+
+        if len(current_invoice_ids) <= 1:
+            from datetime import timedelta
+            from vim.timezone import get_ist_now
+
+            cutoff = get_ist_now() - timedelta(hours=4)
+            recent_docs = (
+                InvoiceDocument.query.filter(
+                    InvoiceDocument.UploadDate >= cutoff
+                )
+                .order_by(InvoiceDocument.UploadDate.asc())
+                .all()
+            )
+            recent_ids = list(dict.fromkeys(doc.InvoiceID for doc in recent_docs))
+            if len(recent_ids) > len(current_invoice_ids):
+                current_invoice_ids = recent_ids
+
         if not current_invoice_ids:
-            return render_template("invoice_validation.html",validation_results=[])
+            recent = (
+                db.session.query(ValidationResult.InvoiceID)
+                .order_by(ValidationResult.ValidationID.desc())
+                .limit(400)
+                .all()
+            )
+            current_invoice_ids = list(
+                dict.fromkeys(row[0] for row in recent)
+            )[:40]
 
-    # --------------------------------------------------
-    # FETCH ONLY VALIDATION RESULTS FOR CURRENT UPLOAD
-    # --------------------------------------------------
+        if current_invoice_ids:
+            session["current_invoice_ids"] = current_invoice_ids
+            session.modified = True
 
-        validation_results = (ValidationResult.query.filter(ValidationResult.InvoiceID.in_(current_invoice_ids))
-                              .order_by(ValidationResult.ValidationID.desc()).all())
+        logger.info(
+            "[VALIDATION-UI] Showing results for invoice IDs: %s",
+            current_invoice_ids,
+        )
 
-    # --------------------------------------------------
-    # CONVERT DB RESULTS TO FRONTEND ROWS
-    # --------------------------------------------------
+        if not current_invoice_ids:
+            return render_template(
+                "invoice_validation.html",
+                validation_results=[],
+                invoice_groups=[],
+            )
 
-        rows = []
+        validation_results = (
+            ValidationResult.query.filter(
+                ValidationResult.InvoiceID.in_(current_invoice_ids)
+            )
+            .order_by(
+                ValidationResult.InvoiceID.asc(),
+                ValidationResult.ValidationID.asc(),
+            )
+            .all()
+        )
+
+        have_ids = {row.InvoiceID for row in validation_results}
+        missing_ids = [iid for iid in current_invoice_ids if iid not in have_ids]
+        if missing_ids:
+            try:
+                from vim.validation_setup.validation.run_validation import (
+                    run_validation,
+                )
+                logger.info(
+                    "[VALIDATION-UI] Missing rows for IDs %s — re-running validation",
+                    missing_ids,
+                )
+                run_validation(invoice_ids=missing_ids)
+                validation_results = (
+                    ValidationResult.query.filter(
+                        ValidationResult.InvoiceID.in_(current_invoice_ids)
+                    )
+                    .order_by(
+                        ValidationResult.InvoiceID.asc(),
+                        ValidationResult.ValidationID.asc(),
+                    )
+                    .all()
+                )
+            except Exception:
+                logger.exception(
+                    "[VALIDATION-UI] Re-run of validation failed for IDs %s",
+                    missing_ids,
+                )
+
+        grouped = OrderedDict()
         for result in validation_results:
-            rows.append({
+            grouped.setdefault(result.InvoiceID, []).append({
                 "validation_id": result.ValidationID,
                 "invoice_id": result.InvoiceID,
                 "invoice_number": result.InvoiceNumber,
                 "validation_type": result.ValidationType,
                 "status": result.ValidationStatus,
                 "message": result.ValidationMessage,
-                "validation_date": result.ValidationDate})
+                "validation_date": result.ValidationDate,
+            })
 
-        print("Invoice Validation - records displayed:",len(rows))
+        invoice_groups = []
+        seen = set()
+        for iid in current_invoice_ids:
+            if iid in grouped and iid not in seen:
+                rows = grouped[iid]
+                invoice_groups.append({
+                    "invoice_id": iid,
+                    "invoice_number": rows[0]["invoice_number"],
+                    "results": rows,
+                })
+                seen.add(iid)
+        for iid, rows in grouped.items():
+            if iid not in seen:
+                invoice_groups.append({
+                    "invoice_id": iid,
+                    "invoice_number": rows[0]["invoice_number"],
+                    "results": rows,
+                })
 
-        return render_template("invoice_validation.html",validation_results=rows)
+        rows = [row for group in invoice_groups for row in group["results"]]
+        logger.info(
+            "[VALIDATION-UI] Records displayed: %d across %d invoice(s)",
+            len(rows), len(invoice_groups),
+        )
+
+        return render_template(
+            "invoice_validation.html",
+            validation_results=rows,
+            invoice_groups=invoice_groups,
+        )
 
 
     # ─────────────────────────────────────────────────────────────────────────────
