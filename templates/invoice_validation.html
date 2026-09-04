@@ -20,7 +20,12 @@ Invoice Validation
             </h2>
 
             <p class="validation-subtitle">
-                Validation results for currently processed invoices
+                {% if invoice_groups %}
+                    Showing {{ invoice_groups|length }} invoice{{ 's' if invoice_groups|length != 1 else '' }}
+                    from the last upload ({{ validation_results|length }} checks)
+                {% else %}
+                    Validation results for currently processed invoices
+                {% endif %}
             </p>
         </div>
 
@@ -44,7 +49,7 @@ Invoice Validation
 
     <div class="validation-card">
 
-        {% if validation_results %}
+        {% if invoice_groups %}
 
         <!-- =================================================
              TABLE
@@ -78,9 +83,17 @@ Invoice Validation
                 </thead>
 
 
-                <tbody>
+                {% for group in invoice_groups %}
+                <tbody class="invoice-group">
+                    <tr class="invoice-group-header">
+                        <td colspan="6">
+                            Invoice {{ group.invoice_id }}
+                            — {{ group.invoice_number or "—" }}
+                            ({{ group.results|length }} checks)
+                        </td>
+                    </tr>
 
-                    {% for result in validation_results %}
+                    {% for result in group.results %}
 
                     <tr>
 
@@ -143,8 +156,8 @@ Invoice Validation
                     </tr>
 
                     {% endfor %}
-
                 </tbody>
+                {% endfor %}
 
             </table>
 
@@ -425,6 +438,19 @@ Invoice Validation
     }
 
 
+    .invoice-group-header td {
+
+        background: #4b3832;
+
+        color: #fff;
+
+        font-weight: 600;
+
+        font-size: 14px;
+
+    }
+
+
     /* -------------------------------------------------------
        PAGINATION
     ------------------------------------------------------- */
@@ -662,24 +688,23 @@ Invoice Validation
      PAGINATION JAVASCRIPT
 ========================================================= -->
 
-{% if validation_results %}
+{% if invoice_groups %}
 
 <script>
 
-    const rowsPerPage = 10;
+    const groupsPerPage = 20;
 
     let currentPage = 1;
 
-    const table = document.getElementById("validationTable");
+    const groups = Array.from(
+        document.querySelectorAll("#validationTable tbody.invoice-group")
+    );
 
-    const tbody = table.querySelector("tbody");
+    const totalGroups = groups.length;
 
-    const rows = Array.from(tbody.querySelectorAll("tr"));
-
-    const totalRows = rows.length;
-
-    const totalPages = Math.ceil(
-        totalRows / rowsPerPage
+    const totalPages = Math.max(
+        1,
+        Math.ceil(totalGroups / groupsPerPage)
     );
 
 
@@ -687,159 +712,65 @@ Invoice Validation
 
         currentPage = page;
 
-        const start = (page - 1) * rowsPerPage;
+        const start = (page - 1) * groupsPerPage;
 
-        const end = start + rowsPerPage;
+        const end = start + groupsPerPage;
 
-
-        // Hide all rows first
-
-        rows.forEach(function(row, index) {
-
-            if (
-                index >= start &&
-                index < end
-            ) {
-
-                row.style.display = "";
-
-            } else {
-
-                row.style.display = "none";
-
-            }
-
+        groups.forEach(function(group, index) {
+            group.style.display =
+                index >= start && index < end ? "" : "none";
         });
 
-
-        // Update Previous button
-
         const previousButton =
-            document.getElementById(
-                "previousButton"
-            );
-
-        previousButton.disabled =
-            currentPage === 1;
-
-
-        // Update Next button
+            document.getElementById("previousButton");
+        previousButton.disabled = currentPage === 1;
 
         const nextButton =
-            document.getElementById(
-                "nextButton"
-            );
-
-        nextButton.disabled =
-            currentPage === totalPages;
-
-
-        // Generate page numbers
+            document.getElementById("nextButton");
+        nextButton.disabled = currentPage === totalPages;
 
         const pageNumbers =
-            document.getElementById(
-                "pageNumbers"
-            );
-
+            document.getElementById("pageNumbers");
         pageNumbers.innerHTML = "";
 
-
-        for (
-            let i = 1;
-            i <= totalPages;
-            i++
-        ) {
-
-            const button =
-                document.createElement("button");
-
+        for (let i = 1; i <= totalPages; i++) {
+            const button = document.createElement("button");
             button.innerText = i;
-
-            button.className =
-                "page-number";
-
-
+            button.className = "page-number";
             if (i === currentPage) {
-
                 button.classList.add("active");
-
             }
-
-
             button.onclick = function() {
-
                 displayPage(i);
-
             };
-
-
             pageNumbers.appendChild(button);
-
         }
 
-
-        // Update row information
-
         const information =
-            document.getElementById(
-                "rowInformation"
-            );
-
-
-        const showingStart =
-            totalRows === 0
-                ? 0
-                : start + 1;
-
-
-        const showingEnd =
-            Math.min(
-                end,
-                totalRows
-            );
-
-
+            document.getElementById("rowInformation");
+        const showingStart = totalGroups === 0 ? 0 : start + 1;
+        const showingEnd = Math.min(end, totalGroups);
         information.innerText =
-            "Showing " +
+            "Showing invoices " +
             showingStart +
             " - " +
             showingEnd +
             " of " +
-            totalRows +
-            " validation results";
+            totalGroups;
 
     }
-
 
     function previousPage() {
-
         if (currentPage > 1) {
-
-            displayPage(
-                currentPage - 1
-            );
-
+            displayPage(currentPage - 1);
         }
-
     }
-
 
     function nextPage() {
-
         if (currentPage < totalPages) {
-
-            displayPage(
-                currentPage + 1
-            );
-
+            displayPage(currentPage + 1);
         }
-
     }
-
-
-    // -------------------------------------------------------
-    // Load first page
-    // -------------------------------------------------------
 
     displayPage(1);
 
