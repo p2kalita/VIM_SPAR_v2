@@ -300,59 +300,85 @@ def register_routes(app):
         ).all()
  
         if request.method == 'POST':
- 
-            invoice_id = request.form.get('invoice_id')
+
+            raw_ids = request.form.getlist('invoice_id')
             approver_user_id = request.form.get('approver_user_id')
 
-            try:
-                invoice_id = int(invoice_id)
-            except (TypeError, ValueError):
-                flash("Select an invoice.", "danger")
+            invoice_ids = []
+            for raw in raw_ids:
+                try:
+                    invoice_ids.append(int(raw))
+                except (TypeError, ValueError):
+                    continue
+            invoice_ids = list(dict.fromkeys(invoice_ids))
+
+            if not invoice_ids:
+                flash("Select at least one invoice file.", "danger")
                 return redirect(url_for('admin_approval'))
 
-            invoice = db.session.get(Invoice, invoice_id)
-            if invoice is None:
-                flash(f"Invoice {invoice_id} was not found.", "danger")
-                return redirect(url_for('admin_approval'))
- 
             approver = User.query.filter_by(
                 UserID=approver_user_id,
                 Role='approver',
                 IsActive=True
             ).first()
- 
+
             if not approver:
                 flash("Selected user is not an active approver.", "danger")
                 return redirect(url_for('admin_approval'))
 
-            existing_approval = Approval.query.filter_by(
-                InvoiceID=invoice.InvoiceID,
-                ApproverUserID=approver.UserID,
-                ApprovalStatus='Pending'
-            ).first()
-            if existing_approval:
-                flash(
-                    f"Invoice is already pending approval by {approver.Username}.",
-                    "warning"
-                )
-                return redirect(url_for('admin_approval'))
+            assigned = []
+            skipped = []
+            missing = []
 
-            approval = Approval(
-                InvoiceID=invoice.InvoiceID,
-                ApproverUserID=approver.UserID,
-                ApprovalStatus='Pending',
-                ApprovalDate=get_ist_now()
-            )
-            invoice.InvoiceStatus = "Pending Approval"
- 
-            db.session.add(approval)
-            db.session.commit()
- 
-            flash(
-                f"Invoice {invoice.InvoiceNumber} assigned to {approver.Username}.",
-                "success"
-            )
- 
+            for invoice_id in invoice_ids:
+                invoice = db.session.get(Invoice, invoice_id)
+                if invoice is None:
+                    missing.append(str(invoice_id))
+                    continue
+
+                existing_approval = Approval.query.filter_by(
+                    InvoiceID=invoice.InvoiceID,
+                    ApproverUserID=approver.UserID,
+                    ApprovalStatus='Pending'
+                ).first()
+                if existing_approval:
+                    skipped.append(
+                        invoice.InvoiceNumber or f"Invoice {invoice.InvoiceID}"
+                    )
+                    continue
+
+                db.session.add(Approval(
+                    InvoiceID=invoice.InvoiceID,
+                    ApproverUserID=approver.UserID,
+                    ApprovalStatus='Pending',
+                    ApprovalDate=get_ist_now()
+                ))
+                invoice.InvoiceStatus = "Pending Approval"
+                assigned.append(
+                    invoice.InvoiceNumber or f"Invoice {invoice.InvoiceID}"
+                )
+
+            if assigned:
+                db.session.commit()
+                flash(
+                    f"Assigned {len(assigned)} file(s) to {approver.Username}: "
+                    + ", ".join(assigned),
+                    "success",
+                )
+            else:
+                db.session.rollback()
+
+            if skipped:
+                flash(
+                    "Already pending with this approver: " + ", ".join(skipped),
+                    "warning",
+                )
+            if missing:
+                flash(
+                    "Invoice(s) not found: " + ", ".join(missing),
+                    "danger",
+                )
+
             return redirect(url_for('admin_approval'))
  
         file_by_invoice = {}

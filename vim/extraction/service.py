@@ -1,6 +1,5 @@
 """Orchestrates upload → extract → persist for the VIM web app."""
 
-import threading
 import time
 from pathlib import Path
 from uuid import uuid4
@@ -17,15 +16,13 @@ from vim.extraction.enrich import extract_from_file, load_document_text
 from vim.extraction.load import insert_record
 from vim.extraction.schema import empty_record
 from vim.extraction.vendors import find_or_create_vendor
-from vim_database.database import db
+from vim_database.database import db, write_lock, is_locked_error
+from sqlalchemy.exc import OperationalError
 from vim_logger import get_logger
 
 logger = get_logger("vim.extraction.service")
 
-
-# SQLite permits a single writer, so parallel uploads take turns for the
-# persist step rather than racing and failing with "database is locked".
-_db_write_lock = threading.Lock()
+_PERSIST_LOCK_ATTEMPTS = 8
  
 def allowed_file(filename: str) -> bool:
     return Path(filename).suffix.lower() in config.SUPPORTED_EXTENSIONS
@@ -486,44 +483,64 @@ def _persist_record(
     if not str(record.get("vendor_name") or "").strip():
         return _hold_incomplete_header(record, original_name, saved_path)
 
-    # SQLite takes one writer at a time. Serialising this costs almost
-    # nothing because the slow work has already finished.
-    with _db_write_lock:
-        vendor, vendor_action = find_or_create_vendor(
-            record, create=register_new_vendor
-        )
-
-        if not vendor:
-            db.session.rollback()
-            # Extracted, but the vendor is new. Hold the invoice until the
-            # admin chooses to register them or discard this upload.
-            logger.info("[PERSIST] Unknown vendor '%s' on '%s' — holding for admin decision",
-                        record.get("vendor_name"), original_name)
-            record["vendor_id"] = None
-            record["status"] = "vendor_not_registered"
-            record["_pending_vendor"] = True
-            record.pop("_extraction_error", None)
-            return _hold_as_rejected(record, "vendor_not_registered")
-
-        logger.info("[PERSIST] Vendor resolved: '%s' (action=%s)",
-                    vendor.VendorName, vendor_action)
-        record["vendor_name"] = vendor.VendorName
-        record["vendor_id"] = vendor.VendorID
-        record["_vendor_action"] = vendor_action
-        record.pop("_pending_vendor", None)
-
+    last_error = None
+    for attempt in range(_PERSIST_LOCK_ATTEMPTS):
         try:
-            invoice = insert_record(record)
-            db.session.commit()
-            record["invoice_id"] = invoice.InvoiceID
-            logger.info("[PERSIST] Invoice saved: InvoiceID=%s for '%s'",
-                        invoice.InvoiceID, original_name)
-            from vim.extraction.rejections import DECISION_PROCEEDED, mark_decision
-            mark_decision(
-                record.get("stored_file_name"),
-                DECISION_PROCEEDED,
-                user_id=decided_by,
+            with write_lock:
+                vendor, vendor_action = find_or_create_vendor(
+                    record, create=register_new_vendor
+                )
+
+                if not vendor:
+                    db.session.rollback()
+                    logger.info(
+                        "[PERSIST] Unknown vendor '%s' on '%s' — holding for admin decision",
+                        record.get("vendor_name"), original_name,
+                    )
+                    record["vendor_id"] = None
+                    record["status"] = "vendor_not_registered"
+                    record["_pending_vendor"] = True
+                    record.pop("_extraction_error", None)
+                    return _hold_as_rejected(record, "vendor_not_registered")
+
+                logger.info(
+                    "[PERSIST] Vendor resolved: '%s' (action=%s)",
+                    vendor.VendorName, vendor_action,
+                )
+                record["vendor_name"] = vendor.VendorName
+                record["vendor_id"] = vendor.VendorID
+                record["_vendor_action"] = vendor_action
+                record.pop("_pending_vendor", None)
+
+                invoice = insert_record(record)
+                db.session.commit()
+                record["invoice_id"] = invoice.InvoiceID
+                logger.info(
+                    "[PERSIST] Invoice saved: InvoiceID=%s for '%s'",
+                    invoice.InvoiceID, original_name,
+                )
+                from vim.extraction.rejections import DECISION_PROCEEDED, mark_decision
+                mark_decision(
+                    record.get("stored_file_name"),
+                    DECISION_PROCEEDED,
+                    user_id=decided_by,
+                )
+            break
+        except OperationalError as e:
+            db.session.rollback()
+            if not is_locked_error(e):
+                logger.error("[PERSIST] DB error saving '%s': %s", original_name, e, exc_info=True)
+                record["status"] = "db_error"
+                record["_db_error"] = str(e)
+                upsert_record(record)
+                return record
+            last_error = e
+            delay = min(0.25 * (2 ** attempt), 2.0)
+            logger.warning(
+                "[PERSIST] database locked on '%s' (attempt %d/%d), retrying in %.1fs",
+                original_name, attempt + 1, _PERSIST_LOCK_ATTEMPTS, delay,
             )
+            time.sleep(delay)
         except Exception as e:
             db.session.rollback()
             logger.error("[PERSIST] DB error saving '%s': %s", original_name, e, exc_info=True)
@@ -531,8 +548,16 @@ def _persist_record(
             record["_db_error"] = str(e)
             upsert_record(record)
             return record
- 
+    else:
+        logger.error(
+            "[PERSIST] database still locked after retries for '%s': %s",
+            original_name, last_error,
+        )
+        record["status"] = "db_error"
+        record["_db_error"] = str(last_error)
+        upsert_record(record)
+        return record
+
     record["status"] = _resolve_status(record)
     upsert_record(record)
     return record
- 

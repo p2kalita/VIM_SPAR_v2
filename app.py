@@ -1,5 +1,5 @@
 from flask import Flask
-from vim_database.database import db
+from vim_database.database import db, configure_sqlite, apply_sqlite_pragmas
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -49,10 +49,13 @@ def create_app():
 
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+    configure_sqlite(app)
     db.init_app(app)
     logger.info("SQLAlchemy initialised — DB: %s", app.config["SQLALCHEMY_DATABASE_URI"])
 
     with app.app_context():
+
+        apply_sqlite_pragmas()
 
         import vim_database.models
 
