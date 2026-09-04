@@ -106,5 +106,35 @@
         "invoice_number": "2409020",
         "vendor_id": 1,
         "processed_at": "2026-09-04T15:36:13.810920"
+    },
+    {
+        "invoice_id": 3,
+        "invoice_number": "2602011",
+        "vendor_id": 1,
+        "processed_at": "2026-09-04T16:09:53.363863"
+    },
+    {
+        "invoice_id": 1,
+        "invoice_number": "SUP-2501002",
+        "vendor_id": 2,
+        "processed_at": "2026-09-04T16:20:33.669467"
+    },
+    {
+        "invoice_id": 2,
+        "invoice_number": "VCH-1002",
+        "vendor_id": 3,
+        "processed_at": "2026-09-04T16:21:26.435942"
+    },
+    {
+        "invoice_id": 3,
+        "invoice_number": "2026-05/003",
+        "vendor_id": 4,
+        "processed_at": "2026-09-04T16:21:29.014288"
+    },
+    {
+        "invoice_id": 4,
+        "invoice_number": "INV-2026-9021",
+        "vendor_id": 5,
+        "processed_at": "2026-09-04T16:26:42.428024"
     }
 ]

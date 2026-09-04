@@ -61,25 +61,96 @@
             background: #e8eef7;
         }
 
-       .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
 
-.dashboard-btn {
-    padding: 10px 20px;
-    background-color: #1f6b9a;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-    font-weight: 600;
-}
+        .flash {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+        }
 
-.dashboard-btn:hover {
-    background-color: #155274;
-}
+        .flash-success { background: #d1e7dd; color: #0f5132; }
+        .flash-warning { background: #fff3cd; color: #664d03; }
+        .flash-danger { background: #f8d7da; color: #842029; }
+        .flash-info { background: #cff4fc; color: #055160; }
+
+        .dashboard-btn {
+            padding: 10px 20px;
+            background-color: #1f6b9a;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+        }
+
+        .dashboard-btn:hover {
+            background-color: #155274;
+        }
+
+        .invoice-toolbar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 6px;
+        }
+
+        .invoice-toolbar input[type="search"] {
+            flex: 1;
+        }
+
+        .select-all {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            white-space: nowrap;
+            margin: 0;
+        }
+
+        .select-all input {
+            width: auto;
+        }
+
+        .invoice-list {
+            max-height: 280px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #fafbfe;
+            margin-top: 8px;
+        }
+
+        .invoice-option {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-weight: normal;
+            margin: 0;
+            padding: 8px 4px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .invoice-option:last-child {
+            border-bottom: none;
+        }
+
+        .invoice-option input {
+            width: auto;
+            margin-top: 3px;
+        }
+
+        .hint {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 8px;
+        }
     </style>
 </head>
 
@@ -93,22 +164,42 @@
     </a>
     </div>
 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
     <div class="card">
 
-        <h2>Assign Invoice for Approval</h2>
+        <h2>Assign Files for Approval</h2>
 
-        <form method="POST">
+        <form method="POST" id="assignForm">
 
-            <label>Invoice</label>
+            <label>Invoice files</label>
+            <p class="hint">Select one or more uploaded files to send to the same approver.</p>
 
-            <select name="invoice_id" required>
-                <option value="">-- Select invoice file --</option>
-                {% for inv in invoice_choices|default([]) %}
-                    <option value="{{ inv.id }}">{{ inv.label }}</option>
-                {% endfor %}
-            </select>
             {% if invoice_choices is defined and invoice_choices|length == 0 %}
-            <p style="color:#666; font-size:0.9em; margin-top:8px;">No invoices available to assign.</p>
+            <p class="hint">No invoice files available to assign.</p>
+            {% else %}
+            <div class="invoice-toolbar">
+                <input type="search" id="invoiceFilter" placeholder="Filter by file, invoice number, or vendor" autocomplete="off">
+                <label class="select-all">
+                    <input type="checkbox" id="selectAll">
+                    Select all
+                </label>
+            </div>
+            <div class="invoice-list" id="invoiceList">
+                {% for inv in invoice_choices|default([]) %}
+                <label class="invoice-option" data-label="{{ inv.label|lower }}">
+                    <input type="checkbox" name="invoice_id" value="{{ inv.id }}">
+                    <span>{{ inv.label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <p class="hint" id="selectedCount">0 selected</p>
             {% endif %}
 
             <label>Select Approver</label>
@@ -184,6 +275,71 @@
         </table>
 
     </div>
+
+<script>
+(function () {
+    const form = document.getElementById("assignForm");
+    const list = document.getElementById("invoiceList");
+    const filter = document.getElementById("invoiceFilter");
+    const selectAll = document.getElementById("selectAll");
+    const count = document.getElementById("selectedCount");
+    if (!form || !list) return;
+
+    function visibleOptions() {
+        return Array.from(list.querySelectorAll(".invoice-option"))
+            .filter(function (row) { return row.style.display !== "none"; });
+    }
+
+    function boxes(rows) {
+        return rows.map(function (row) {
+            return row.querySelector('input[name="invoice_id"]');
+        });
+    }
+
+    function updateCount() {
+        const selected = list.querySelectorAll('input[name="invoice_id"]:checked').length;
+        if (count) count.textContent = selected + " selected";
+        const visible = boxes(visibleOptions());
+        if (selectAll) {
+            selectAll.checked = visible.length > 0 && visible.every(function (box) {
+                return box.checked;
+            });
+        }
+    }
+
+    if (filter) {
+        filter.addEventListener("input", function () {
+            const q = filter.value.trim().toLowerCase();
+            list.querySelectorAll(".invoice-option").forEach(function (row) {
+                const label = row.getAttribute("data-label") || "";
+                row.style.display = !q || label.indexOf(q) !== -1 ? "" : "none";
+            });
+            updateCount();
+        });
+    }
+
+    if (selectAll) {
+        selectAll.addEventListener("change", function () {
+            boxes(visibleOptions()).forEach(function (box) {
+                box.checked = selectAll.checked;
+            });
+            updateCount();
+        });
+    }
+
+    list.addEventListener("change", updateCount);
+
+    form.addEventListener("submit", function (event) {
+        const selected = list.querySelectorAll('input[name="invoice_id"]:checked').length;
+        if (!selected) {
+            event.preventDefault();
+            alert("Select at least one invoice file.");
+        }
+    });
+
+    updateCount();
+})();
+</script>
 
 </body>
 </html>

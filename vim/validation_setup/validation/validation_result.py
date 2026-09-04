@@ -1,4 +1,4 @@
-from vim_database.database import db
+from vim_database.database import db, write_lock
 from vim_database.models import ValidationResult
 from vim_logger import get_logger
 
@@ -28,54 +28,40 @@ def save_validation_results(invoice, validation_result):
         len(results), invoice_id, invoice_number
     )
 
-    deleted = ValidationResult.query.filter_by(
-        InvoiceID=invoice_id
-    ).delete()
-    logger.debug("[RESULT] Cleared %d old result row(s) for InvoiceID=%s", deleted, invoice_id)
-
-    for result in results:
-
-        # --------------------------------------------------
-        # Stage Status
-        # --------------------------------------------------
-        #
-        # For now, this is derived from the existing
-        # validation status.
-        #
-        # Later we can update this directly from each
-        # stage when the stage starts/completes/fails.
-        # --------------------------------------------------
-
-        validation_status = result.get("status")
-
-        if validation_status == "FAILED":
-            stage_status = "failed"
-
-        else:
-            stage_status = "completed"
-
-        validation_record = ValidationResult(
-            InvoiceID=invoice_id,
-            InvoiceNumber=invoice_number,
-            ValidationType=result.get("stage"),
-
-            # Existing logic - UNCHANGED
-            ValidationStatus=validation_status,
-            ValidationMessage=result.get("message"),
-            ValidationDetails=result.get("details", {}),
-
-            # NEW COLUMN ONLY
-            StageStatus=stage_status
-        )
-
-        logger.debug(
-            "[RESULT]   Stage='%s' Status='%s' StageStatus='%s'",
-            result.get("stage"), validation_status, stage_status
-        )
-        db.session.add(validation_record)
-
     try:
-        db.session.commit()
+        with write_lock:
+            deleted = ValidationResult.query.filter_by(
+                InvoiceID=invoice_id
+            ).delete()
+            logger.debug("[RESULT] Cleared %d old result row(s) for InvoiceID=%s", deleted, invoice_id)
+
+            for result in results:
+
+                validation_status = result.get("status")
+
+                if validation_status == "FAILED":
+                    stage_status = "failed"
+
+                else:
+                    stage_status = "completed"
+
+                validation_record = ValidationResult(
+                    InvoiceID=invoice_id,
+                    InvoiceNumber=invoice_number,
+                    ValidationType=result.get("stage"),
+                    ValidationStatus=validation_status,
+                    ValidationMessage=result.get("message"),
+                    ValidationDetails=result.get("details", {}),
+                    StageStatus=stage_status
+                )
+
+                logger.debug(
+                    "[RESULT]   Stage='%s' Status='%s' StageStatus='%s'",
+                    result.get("stage"), validation_status, stage_status
+                )
+                db.session.add(validation_record)
+
+            db.session.commit()
         logger.info(
             "[RESULT] Committed %d result row(s) for InvoiceID=%s",
             len(results), invoice_id
