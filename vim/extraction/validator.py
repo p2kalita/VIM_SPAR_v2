@@ -87,9 +87,10 @@ def _coerce_percent(value):
  
  
 _DOCUMENT_TYPE_KEYWORDS = [
+    (3, ("bill of supply", "purchase order", "prescription")),
     (2, ("credit memo", "credit note", "creditnote", "refund")),
     (1, ("debit memo", "debit note", "debitnote")),
-    (0, ("tax invoice", "invoice", "bill of supply", "bill")),
+    (0, ("tax invoice", "invoice", "bill")),
 ]
  
  

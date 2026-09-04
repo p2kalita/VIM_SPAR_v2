@@ -46,10 +46,11 @@ _RESPONSE_SCHEMA = {
 
 _CRITERIA = """
 Decide whether this document is a VENDOR INVOICE or an equivalent billable
-document (invoice, bill, bill of supply, tax invoice, credit note, debit note,
-utility/telecom statement sent to a company accounts-payable team).
+document (invoice, tax invoice, credit note, debit note, or a utility/telecom
+statement sent to a company accounts-payable team).
 
 It is NOT an invoice if it is any of:
+- a BILL OF SUPPLY (also labelled "Bill of Supplies")
 - a medical or pharmacy PRESCRIPTION, RX slip, or RX copay
 - a retail / pharmacy till receipt or card-terminal (chip/debit/credit) receipt
 - a purchase order (PO), quote, sales order
@@ -57,6 +58,10 @@ It is NOT an invoice if it is any of:
 - a screenshot, photograph, logo, chart, bank statement, marketing material
 - any other document that does not request payment from a company for goods
   or services already (or being) supplied on a vendor invoice
+
+A Bill of Supply is a GST document used when tax is not charged. It is not
+a tax invoice and must be rejected, even if it has a supplier name, line
+items, and amounts.
 
 A pharmacy "combined sale", prescription, or card-chip receipt is a consumer
 checkout slip, not a vendor invoice, even if it has line items and amounts.
@@ -70,12 +75,14 @@ Rules:
 - Mentioning the words "invoice" or "payment" is not enough on its own; look
   for a real vendor-invoice structure such as an invoice number, billed
   amounts, line items, or a payment request to an AP department.
+- If the document is titled BILL OF SUPPLY / BILL OF SUPPLIES, it is not
+  an invoice. Set is_invoice to false.
 - If the document is a prescription, RX copay, or POS/card receipt, it is
   not an invoice — even when it shows a store name, totals, and tax.
 - If the document is titled PURCHASE ORDER, or it has a PO number but no
   invoice number and no invoice date, it is not an invoice.
 - "document_type" is a short human-readable label, e.g. "Tax Invoice",
-  "Purchase Order", "Prescription", or "Retail receipt".
+  "Bill of Supply", "Purchase Order", "Prescription", or "Retail receipt".
 - "confidence" is an integer from 0 to 100.
 - "reason" is one short sentence explaining the decision.
 """.strip()
@@ -311,6 +318,8 @@ _PO_FILENAME = re.compile(r"(?i)(^|[^a-z0-9])po[-_\s.]")
 _PRESCRIPTION_FILE = re.compile(r"(?i)prescription|\brx[-_\s.]")
 _RX_ITEM = re.compile(r"(?i)\b(rx\s*copay|prescription|rx\s*#)\b")
 _POS_EXTRA_KEYS = {"card_entry", "card_type", "card_number"}
+_BOS_PHRASE = re.compile(r"bill\s+of\s+supplys?", re.I)
+_BOS_FILENAME = re.compile(r"(?i)bill[_\s-]*of[_\s-]*supply")
 
 
 def purchase_order_hold_reason(record: dict) -> str | None:
@@ -360,6 +369,7 @@ def non_invoice_hold_reason(record: dict) -> tuple[str, str] | None:
     document_type = str(record.get("document_type") or "").strip()
     type_lower = document_type.lower()
     file_name = str(record.get("file_name") or record.get("stored_file_name") or "")
+    raw_text = record.get("raw_text") or ""
     extra = record.get("extra_fields") or {}
     extra_keys = {str(k).lower() for k in extra}
     extra_text = " ".join(str(v) for v in extra.values()).lower()
@@ -368,6 +378,16 @@ def non_invoice_hold_reason(record: dict) -> tuple[str, str] | None:
         for item in (record.get("line_items") or [])
         if isinstance(item, dict)
     )
+
+    if (
+        _BOS_PHRASE.search(document_type)
+        or _BOS_PHRASE.search(raw_text)
+        or _BOS_FILENAME.search(Path(file_name).name)
+    ):
+        return (
+            "This is a Bill of Supply, not a tax invoice.",
+            "Bill of Supply",
+        )
 
     if _PRESCRIPTION_FILE.search(Path(file_name).name):
         return (
