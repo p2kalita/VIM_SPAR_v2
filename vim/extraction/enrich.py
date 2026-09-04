@@ -55,6 +55,7 @@ Document type (derived):
   other kind of document (including a purchase order). Judge this from the
   document's own title and wording, not from the presence of negative amounts.
   A purchase order is code 3, even if it is printed on an invoice template.
+  A Bill of Supply is also code 3 — it is not a tax invoice.
 - "document_type" should be the printed title, e.g. "Purchase Order", not
   "Sales Invoice" unless the document actually is an invoice.
 - "po_non_po" is "PO" when the document references a purchase order number,
