@@ -136,5 +136,17 @@
         "invoice_number": "INV-2026-9021",
         "vendor_id": 5,
         "processed_at": "2026-09-04T16:26:42.428024"
+    },
+    {
+        "invoice_id": 23,
+        "invoice_number": "INV-2026-101",
+        "vendor_id": 9,
+        "processed_at": "2026-09-06T19:38:40.781453"
+    },
+    {
+        "invoice_id": 24,
+        "invoice_number": "INV-2026-103",
+        "vendor_id": 9,
+        "processed_at": "2026-09-06T19:38:40.965970"
     }
 ]

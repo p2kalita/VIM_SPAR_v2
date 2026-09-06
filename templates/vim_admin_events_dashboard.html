@@ -258,6 +258,19 @@
     padding: 18px 24px; border-bottom: 1px solid #efefef; position: sticky; top: 0; background: #fff; z-index: 10;
   }
   .ev-modal-header h2 { font-size: 16px; font-weight: 700; color: #0f172a; }
+  .ev-modal-header-actions { display: flex; align-items: center; gap: 10px; }
+  .ev-btn-view-invoice {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid #0284c7; background: #0ea5e9; color: #ffffff !important;
+    text-decoration: none; transition: all 0.15s ease; white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(14, 165, 233, 0.25);
+  }
+  .ev-btn-view-invoice:hover {
+    background: #0284c7; border-color: #0369a1; color: #ffffff !important;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35); transform: translateY(-1px);
+  }
+  .ev-btn-view-invoice:active { transform: translateY(0); }
   .ev-modal-close { background: none; border: none; cursor: pointer; font-size: 22px; color: #94a3b8; padding: 0 6px; }
   .ev-modal-close:hover { color: #1e293b; }
   .ev-modal-body { padding: 22px 24px; }
@@ -506,7 +519,17 @@
   <div class="ev-modal">
     <div class="ev-modal-header">
       <h2>Validation Detail <span id="ev-modal-id" style="font-family:monospace;font-size:12px;color:#888;"></span></h2>
-      <button class="ev-modal-close" onclick="evCloseModal()">×</button>
+      <div class="ev-modal-header-actions">
+        <a id="ev-btn-view-invoice" href="#" target="_blank" rel="noopener noreferrer" class="ev-btn-view-invoice" style="display:none;" title="Open respective invoice in a new window" onclick="return evHandleViewInvoiceClick(event)">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+          <span>View Invoice</span>
+        </a>
+        <button class="ev-modal-close" onclick="evCloseModal()" title="Close">×</button>
+      </div>
     </div>
     <div class="ev-modal-body" id="ev-modal-body"></div>
     <div class="ev-modal-footer">
@@ -870,6 +893,18 @@ async function evOpenModal(e, id) {
     evCurrentDetail = r;
 
     document.getElementById("ev-modal-id").textContent = `#${r.id}`;
+    const targetInvoiceId = r.invoice_id || (r.invoice_info && r.invoice_info.invoice_id);
+    const viewInvBtn = document.getElementById("ev-btn-view-invoice");
+    if (viewInvBtn) {
+      if (targetInvoiceId) {
+        viewInvBtn.href = `/admin/invoice/${targetInvoiceId}/view`;
+        viewInvBtn.style.display = "inline-flex";
+        viewInvBtn.title = `View Invoice #${r.invoice_number || targetInvoiceId} in new window`;
+      } else {
+        viewInvBtn.style.display = "none";
+        viewInvBtn.href = "#";
+      }
+    }
     const inv = r.invoice_info || {};
     const detailJson = r.details ? JSON.stringify(r.details, null, 2) : "{}";
 
@@ -953,9 +988,25 @@ async function evOpenModal(e, id) {
   }
 }
 
+function evHandleViewInvoiceClick(e) {
+  const btn = document.getElementById("ev-btn-view-invoice");
+  const href = btn ? btn.getAttribute("href") : "";
+  if (!href || href === "#") {
+    if (e) e.preventDefault();
+    evToast("No invoice is linked to this validation result.", false);
+    return false;
+  }
+  return true;
+}
+
 function evCloseModal(e) {
   if (!e || e.target === document.getElementById("ev-modal")) {
     document.getElementById("ev-modal").classList.remove("open");
+    const viewInvBtn = document.getElementById("ev-btn-view-invoice");
+    if (viewInvBtn) {
+      viewInvBtn.style.display = "none";
+      viewInvBtn.href = "#";
+    }
   }
 }
 

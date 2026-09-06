@@ -2228,10 +2228,12 @@ def register_routes(app):
             'invoice_number': r.InvoiceNumber,
         }
 
+        actual_inv_id = inv.InvoiceID if inv else r.InvoiceID
+        actual_inv_number = inv.InvoiceNumber if inv else r.InvoiceNumber
         return _jsonify({
             'id':              r.ValidationID,
-            'invoice_id':      r.InvoiceID,
-            'invoice_number':  r.InvoiceNumber,
+            'invoice_id':      actual_inv_id,
+            'invoice_number':  actual_inv_number,
             'validation_type': r.ValidationType,
             'status':          r.ValidationStatus,
             'message':         r.ValidationMessage,
@@ -2429,3 +2431,112 @@ def register_routes(app):
         ]
 
         return _jsonify({'statuses': statuses, 'types': types})
+
+    # ---------------- INVOICE DOCUMENT RESOLVER HELPER ----------------
+    def _resolve_document_path(storage_path, filename=None):
+        if not storage_path:
+            return None
+        p = Path(storage_path)
+        if p.is_file():
+            return p
+        from vim.extraction import config as extraction_config
+        candidate = (extraction_config.UPLOAD_DIR / p.name).resolve()
+        if candidate.is_file():
+            return candidate
+        if filename:
+            candidate_fn = (extraction_config.UPLOAD_DIR / filename).resolve()
+            if candidate_fn.is_file():
+                return candidate_fn
+        return None
+
+    # ---------------- VIEW INVOICE (NEW WINDOW) ----------------
+    @app.route('/admin/invoice/<int:invoice_id>/view', methods=['GET'])
+    @admin_required
+    def admin_invoice_view(invoice_id):
+        """Display only the original invoice document like a viewer without extraneous UI contents."""
+        from vim_database.models import Invoice, InvoiceDocument
+        inv = db.session.get(Invoice, invoice_id)
+        if not inv:
+            flash(f"Invoice #{invoice_id} not found.", "warning")
+            return redirect(url_for('admin_vim_issues'))
+
+        doc = InvoiceDocument.query.filter_by(InvoiceID=invoice_id).first()
+
+        doc_exists = False
+        doc_ext = ""
+        resolved_p = None
+        if doc and doc.StoragePath:
+            resolved_p = _resolve_document_path(doc.StoragePath, doc.FileName)
+            doc_exists = resolved_p is not None
+            if resolved_p:
+                doc_ext = resolved_p.suffix.lower().lstrip('.')
+
+        # For PDF and Image documents, redirect directly to document stream for native full-window viewer
+        if doc_exists and doc_ext in ('pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'):
+            return redirect(url_for('admin_invoice_document', invoice_id=invoice_id))
+
+        # For Word documents (DOCX), parse paragraphs & tables to display in a clean document sheet viewer
+        docx_blocks = []
+        if doc_exists and doc_ext in ('docx', 'doc'):
+            try:
+                import docx
+                from docx.oxml.text.paragraph import CT_P
+                from docx.oxml.table import CT_Tbl
+                from docx.text.paragraph import Paragraph
+                from docx.table import Table
+
+                d = docx.Document(resolved_p)
+                for child in d.element.body:
+                    if isinstance(child, CT_P):
+                        p_obj = Paragraph(child, d)
+                        txt = p_obj.text.strip()
+                        if txt:
+                            docx_blocks.append({'type': 'p', 'text': txt})
+                    elif isinstance(child, CT_Tbl):
+                        t_obj = Table(child, d)
+                        rows = []
+                        for r in t_obj.rows:
+                            row_cells = [cell.text.strip() for cell in r.cells]
+                            if any(row_cells):
+                                rows.append(row_cells)
+                        if rows:
+                            docx_blocks.append({'type': 'table', 'rows': rows})
+            except Exception as e:
+                logger.warning("Could not parse docx blocks: %s", e)
+
+        return render_template(
+            'vim_admin_invoice_view.html',
+            invoice=inv,
+            document=doc,
+            doc_exists=doc_exists,
+            doc_ext=doc_ext,
+            docx_blocks=docx_blocks,
+        )
+
+    # ---------------- SERVE INVOICE DOCUMENT (PREVIEW OR DOWNLOAD) ----------------
+    @app.route('/admin/invoice/<int:invoice_id>/document', methods=['GET'])
+    @admin_required
+    def admin_invoice_document(invoice_id):
+        """Serve the raw invoice document file (PDF, image, or docx) for preview or download."""
+        from vim_database.models import InvoiceDocument
+        doc = InvoiceDocument.query.filter_by(InvoiceID=invoice_id).first()
+        if not doc or not doc.StoragePath:
+            return Response("No document registered for this invoice.", status=404, mimetype='text/plain')
+
+        file_path = _resolve_document_path(doc.StoragePath, doc.FileName)
+        if not file_path or not file_path.is_file():
+            return Response("Document file not found on disk.", status=404, mimetype='text/plain')
+
+        mime = mimetypes.guess_type(file_path.name)[0] or 'application/octet-stream'
+        as_download = request.args.get('download', '0') == '1'
+        disposition = 'attachment' if as_download else 'inline'
+        download_name = doc.FileName or file_path.name
+
+        file_bytes = file_path.read_bytes()
+        response = make_response(file_bytes)
+        response.headers['Content-Type'] = mime
+        response.headers['Content-Disposition'] = f'{disposition}; filename="{download_name}"'
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Content-Length'] = str(len(file_bytes))
+        return response
+
