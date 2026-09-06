@@ -1,29 +1,20 @@
 {% extends 'user_base.html' %}
-
-{% block title %} User Dashboard {% endblock %}
+{% block title %}Sign in · Cognira VIM{% endblock %}
 
 {% block content %}
+<h2>Welcome back</h2>
+<p class="lede">Sign in to the AI invoice workspace.</p>
 
-                <div class="form_canvas">
-                    <div id="login-card" class="form-card">
-                        <form action="/login" method="POST">
-                        <div class="mb-3">
-                            <label for="Email-registration" class="form-label">Enter Your Email(Username):</label>
-                            <input type="email" class="form-control" id="Email-registration" placeholder="pralhad2481@gmail.com" name="email">
-                        </div>
-                        <div class="mb-3">
-                            <label for="Password-registration" class="form-label">Enter a Password</label>
-                            <input type="password" class="form-control" id="Password-registration" name="password">
-                        </div>
-
-                        <div style="text-align: center;">
-                            <input type="submit" class="btn btn-primary" value="Login">
-                            <br>
-                            <br>
-                            Don't have an Account? <a href="/register" style="color:#2ebadde9;">Register</a>
-                        </div>
-                        </form>
-                    </div>
-                </div>
-
+<form action="/login" method="POST">
+    <div class="mb-3">
+        <label for="Email-registration" class="form-label">Work email</label>
+        <input type="email" class="form-control" id="Email-registration" placeholder="you@company.com" name="email" required>
+    </div>
+    <div class="mb-3">
+        <label for="Password-registration" class="form-label">Password</label>
+        <input type="password" class="form-control" id="Password-registration" name="password" required>
+    </div>
+    <button type="submit" class="btn btn-primary" style="width:100%;">Continue</button>
+    <p class="auth-switch">Need an account? <a href="{{ url_for('register') }}">Request access</a></p>
+</form>
 {% endblock %}

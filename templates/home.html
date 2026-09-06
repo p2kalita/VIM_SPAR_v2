@@ -1,126 +1,87 @@
-{% extends 'base.html' %} {% block title %} Home {% endblock %} {% block content
-%}
+{% extends 'base.html' %}
+{% block title %}Cognira VIM — AI Vendor Invoice Management{% endblock %}
 
-<div class="section-title">
-	<h2>AI-Powered Vendor Invoice Management</h2>
-	<div class="features">
-	<p> Automate invoice submission, validation, approval, and tracking with intelligent document processing, OCR, AI-powered data extraction, and workflow automation. </p>
-	</div>
-</div>
-  
-  
-    <section class="section">
-        <div class="section-title">
-            <h2>Key Features</h2>
-        </div>
-
-        <div class="features">
-
-            <div class="card">
-                <h3>📄 Intelligent Invoice Upload</h3>
-                <p>
-                    Upload invoices in PDF, JPG, PNG, and scanned formats.
-                    The system automatically processes and extracts data.
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>🤖 AI Data Extraction</h3>
-                <p>
-                    Extract invoice number, vendor details,
-                    invoice date, tax information, and total amount
-                    without manual entry.
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>✔ Smart Validation</h3>
-                <p>
-                    Validate invoices against business rules,
-                    vendor master data, and purchase orders.
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>🔄 Workflow Automation</h3>
-                <p>
-                    Route invoices automatically to approvers
-                    based on business rules and approval limits.
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>📊 Real-Time Tracking</h3>
-                <p>
-                    Monitor invoice status from submission
-                    to payment with complete visibility.
-                </p>
-            </div>
-
-            <div class="card">
-                <h3>💬 AI Assistant (RAG)</h3>
-                <p>
-                    Ask questions about invoices, policies,
-                    and documents using natural language search.
-                </p>
-            </div>
-
-        </div>
-    </section>
-
-    <!-- Benefits -->
-    <section class="section benefits">
-
-        <div class="section-title">
-            <h2>Business Benefits</h2>
-        </div>
-
-        <div class="benefit-list">
-
-            <div class="benefit-item">
-                Reduce Manual Processing Effort
-            </div>
-
-            <div class="benefit-item">
-                Accelerate Invoice Approval Cycles
-            </div>
-
-            <div class="benefit-item">
-                Improve Data Accuracy
-            </div>
-
-            <div class="benefit-item">
-                Minimize Processing Errors
-            </div>
-
-            <div class="benefit-item">
-                Enhance Vendor Experience
-            </div>
-
-            <div class="benefit-item">
-                Maintain Complete Audit Trails
-            </div>
-
-        </div>
-
-    </section>
-
-    <!-- CTA -->
-    <section class="cta">
-
-        <h2>Transform Your Invoice Processing Today</h2>
-
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow"><span class="eyebrow-dot"></span> Cognira · Invoice Intelligence</p>
+        <h1>The AI workspace for <span>vendor invoices</span></h1>
         <p>
-            Leverage AI, OCR, Workflow Automation,
-            and Intelligent Search to modernize your
-            Accounts Payable operations.
+            Upload a PDF or scan. Cognira VIM extracts vendors, taxes, and line items,
+            validates them against policy, and routes approvals — with a RAG assistant
+            that can answer questions on the documents you just processed.
         </p>
+        <div class="hero-buttons">
+            <a href="{{ url_for('login') }}" class="btn btn-primary">Open workspace</a>
+            <a href="#capabilities" class="btn btn-ghost">See capabilities</a>
+        </div>
+        <div class="hero-stats">
+            <div class="hero-stat"><strong>OCR + LLM</strong><span>Document extraction</span></div>
+            <div class="hero-stat"><strong>Rules</strong><span>Live validation</span></div>
+            <div class="hero-stat"><strong>RAG</strong><span>Ask any invoice</span></div>
+        </div>
+    </div>
+</section>
 
-        <a href="#" class="btn btn-primary">
-            Get Started
-        </a>
+<section class="landing-section" id="capabilities">
+    <div class="section-title">
+        <div class="section-kicker">Platform</div>
+        <h2>Built as an AI invoice operating system</h2>
+        <p>AI extracts and validates each invoice; people still approve, and exceptions stay in a review queue.</p>
+    </div>
+    <div class="features">
+        <article class="feature-card">
+            <div class="feature-icon">↑</div>
+            <h3>Intelligent upload</h3>
+            <p>Drop PDFs, scans, Word, or Excel. The pipeline classifies invoices, holds non-invoices, and starts extraction immediately.</p>
+        </article>
+        <article class="feature-card">
+            <div class="feature-icon">✦</div>
+            <h3>AI data extraction</h3>
+            <p>Pull vendor identity, invoice number, dates, tax, totals, and line items without retyping a spreadsheet.</p>
+        </article>
+        <article class="feature-card">
+            <div class="feature-icon">✓</div>
+            <h3>Smart validation</h3>
+            <p>Check invoices against vendor master data, purchase orders, and AP policy before anyone signs off.</p>
+        </article>
+        <article class="feature-card">
+            <div class="feature-icon">↻</div>
+            <h3>Approval workflow</h3>
+            <p>Route work to the right approver with comments, decisions, and a complete audit trail.</p>
+        </article>
+        <article class="feature-card">
+            <div class="feature-icon">◉</div>
+            <h3>Live operations</h3>
+            <p>Watch volume, exceptions, overdue amounts, and pipeline health from one command center.</p>
+        </article>
+        <article class="feature-card">
+            <div class="feature-icon">◈</div>
+            <h3>RAG assistant</h3>
+            <p>Ask natural-language questions across indexed invoices, policies, and vendor documents.</p>
+        </article>
+    </div>
+</section>
 
-    </section>
+<section class="landing-section alt" id="benefits">
+    <div class="section-title">
+        <div class="section-kicker">Outcomes</div>
+        <h2>What AP teams get back</h2>
+        <p>Less keying. Faster cycle times. Cleaner vendor experience.</p>
+    </div>
+    <div class="benefit-list">
+        <div class="benefit-item">Cut manual processing effort</div>
+        <div class="benefit-item">Shorten approval cycles</div>
+        <div class="benefit-item">Raise extraction accuracy</div>
+        <div class="benefit-item">Catch duplicates and policy misses</div>
+        <div class="benefit-item">Give vendors a clearer status trail</div>
+        <div class="benefit-item">Keep a complete audit log</div>
+    </div>
+</section>
 
-
+<section class="cta">
+    <h2>Put AI on every invoice</h2>
+    <p>Use extraction, validation, workflow, and intelligent search together — not as disconnected tools.</p>
+    <a href="{{ url_for('login') }}" class="btn btn-primary">Enter the workspace</a>
+</section>
 {% endblock %}

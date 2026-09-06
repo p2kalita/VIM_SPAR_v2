@@ -1,781 +1,135 @@
 {% extends 'admin_base.html' %}
 
-{% block title %}
-Invoice Validation
-{% endblock %}
+{% block title %}Invoice Validation{% endblock %}
+{% block page_sub %}Policy, vendor, and purchase-order checks on extracted invoices{% endblock %}
 
 {% block content %}
-
-<div class="container-fluid">
-
-    <!-- =====================================================
-         PAGE HEADER
-    ====================================================== -->
-
-    <div class="validation-header">
-
-        <div>
-            <h2>
-                ✔ Invoice Validation Results
-            </h2>
-
-            <p class="validation-subtitle">
-                {% if invoice_groups %}
-                    Showing {{ invoice_groups|length }} invoice{{ 's' if invoice_groups|length != 1 else '' }}
-                    from the last upload ({{ validation_results|length }} checks)
-                {% else %}
-                    Validation results for currently processed invoices
-                {% endif %}
-            </p>
-        </div>
-
-        <!-- Refresh Button -->
-
-        <a
-            href="{{ url_for('admin_invoice_validation') }}"
-            class="refresh-button"
-        >
-            🔄 Refresh
-        </a>
-        
-        <a class="button" href="{{ url_for('admin_activities') }}">← Back to Admin Dashboard</a>
-
+<div class="hub-intro">
+    <div>
+        <p class="eyebrow" style="color:#6d28d9; border-color:#ddd6fe; background:#f5f3ff;">
+            <span class="eyebrow-dot"></span> Intelligence
+        </p>
+        <h2>Invoice validation</h2>
+        <p>
+            {% if invoice_groups %}
+                {{ invoice_groups|length }} invoice{{ 's' if invoice_groups|length != 1 else '' }}
+                from the last upload · {{ validation_results|length }} checks
+            {% else %}
+                Results appear here after an invoice is uploaded and validated.
+            {% endif %}
+        </p>
     </div>
-
-
-    <!-- =====================================================
-         VALIDATION TABLE CARD
-    ====================================================== -->
-
-    <div class="validation-card">
-
-        {% if invoice_groups %}
-
-        <!-- =================================================
-             TABLE
-        ================================================== -->
-
-        <div class="table-responsive">
-
-            <table
-                class="table table-bordered table-hover"
-                id="validationTable"
-            >
-
-                <thead>
-
-                    <tr>
-
-                        <th>Invoice ID</th>
-
-                        <th>Invoice Number</th>
-
-                        <th>Validation Type</th>
-
-                        <th>Status</th>
-
-                        <th>Validation Message</th>
-
-                        <th>Validation Date</th>
-
-                    </tr>
-
-                </thead>
-
-
-                {% for group in invoice_groups %}
-                <tbody class="invoice-group">
-                    <tr class="invoice-group-header">
-                        <td colspan="6">
-                            Invoice {{ group.invoice_id }}
-                            — {{ group.invoice_number or "—" }}
-                            ({{ group.results|length }} checks)
-                        </td>
-                    </tr>
-
-                    {% for result in group.results %}
-
-                    <tr>
-
-                        <td>
-                            {{ result.invoice_id or "-" }}
-                        </td>
-
-                        <td>
-                            {{ result.invoice_number or "—" }}
-                        </td>
-
-                        <td>
-                            {{ result.validation_type or "—" }}
-                        </td>
-
-                        <td>
-
-                            {% if result.status|string|upper == "PASSED" %}
-
-                                <span class="status-badge status-passed">
-                                    PASSED
-                                </span>
-
-                            {% elif result.status|string|upper == "FAILED" %}
-
-                                <span class="status-badge status-failed">
-                                    FAILED
-                                </span>
-
-                            {% else %}
-
-                                <span class="status-badge status-other">
-                                    {{ result.status or "—" }}
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-                        <td class="message-column">
-
-                            {{ result.message or "—" }}
-
-                        </td>
-
-                        <td>
-
-                            {% if result.validation_date %}
-
-                                {{ result.validation_date }}
-
-                            {% else %}
-
-                                —
-
-                            {% endif %}
-
-                        </td>
-
-                    </tr>
-
-                    {% endfor %}
-                </tbody>
-                {% endfor %}
-
-            </table>
-
-        </div>
-
-
-        <!-- =================================================
-             PAGINATION
-        ================================================== -->
-
-        <div
-            class="pagination-container"
-            id="paginationContainer"
-        >
-
-            <button
-                id="previousButton"
-                class="pagination-button"
-                onclick="previousPage()"
-            >
-                Previous
-            </button>
-
-            <div id="pageNumbers"></div>
-
-            <button
-                id="nextButton"
-                class="pagination-button"
-                onclick="nextPage()"
-            >
-                Next
-            </button>
-
-        </div>
-
-
-        <!-- =================================================
-             ROW INFORMATION
-        ================================================== -->
-
-        <div
-            class="row-information"
-            id="rowInformation"
-        >
-        </div>
-
-
-        {% else %}
-
-        <!-- =================================================
-             EMPTY STATE
-        ================================================== -->
-
-        <div class="empty-validation">
-
-            <div class="empty-icon">
-                📋
-            </div>
-
-            <h4>
-                No Validation Results
-            </h4>
-
-            <p>
-                No invoices are currently available for validation.
-            </p>
-
-            <p class="empty-subtext">
-                Upload an invoice from the Invoice Upload section
-                and run validation to see the results here.
-            </p>
-
-            <a
-                href="{{ url_for('admin_invoice_upload') }}"
-                class="upload-button"
-            >
-                📄 Go to Invoice Upload
-            </a>
-
-        </div>
-
-        {% endif %}
-
+    <div class="dir-toolbar">
+        <a href="{{ url_for('admin_invoice_validation') }}" class="btn btn-secondary">Refresh</a>
+        <a href="{{ url_for('admin_invoice_upload') }}" class="btn btn-primary">Upload invoice</a>
     </div>
-
 </div>
 
-
-<!-- =========================================================
-     STYLES
-========================================================= -->
-
-<style>
-
-    /* -------------------------------------------------------
-       PAGE HEADER
-    ------------------------------------------------------- */
-
-    .validation-header {
-
-        display: flex;
-
-        justify-content: space-between;
-
-        align-items: center;
-
-        margin-bottom: 25px;
-
-    }
-
-
-    .validation-header h2 {
-
-        margin: 0;
-
-        color: #090f22;
-
-    }
-
-
-    .validation-subtitle {
-
-        margin-top: 8px;
-
-        color: #666;
-
-        font-size: 14px;
-
-    }
-
-
-    /* -------------------------------------------------------
-       REFRESH BUTTON
-    ------------------------------------------------------- */
-
-    .refresh-button {
-
-        display: inline-block;
-
-        background: #0077b6;
-
-        color: white;
-
-        padding: 10px 20px;
-
-        border-radius: 8px;
-
-        text-decoration: none;
-
-        font-weight: 600;
-
-        transition: 0.3s;
-
-    }
-
-
-    .refresh-button:hover {
-
-        background: #023e8a;
-
-        color: white;
-
-        text-decoration: none;
-
-    }
-
-
-    /* -------------------------------------------------------
-       TABLE CARD
-    ------------------------------------------------------- */
-
-    .validation-card {
-
-        background: white;
-
-        border-radius: 12px;
-
-        padding: 25px;
-
-        box-shadow: 0 4px 12px rgba(0,0,0,0.10);
-
-    }
-
-
-    /* -------------------------------------------------------
-       TABLE
-    ------------------------------------------------------- */
-
-    #validationTable {
-
-        width: 100%;
-
-        margin-bottom: 0;
-
-        table-layout: auto;
-
-    }
-
-
-    #validationTable thead th {
-
-        background: #212529;
-
-        color: white;
-
-        text-align: center;
-
-        vertical-align: middle;
-
-        white-space: nowrap;
-
-        padding: 12px 10px;
-
-    }
-
-
-    #validationTable tbody td {
-
-        text-align: center;
-
-        vertical-align: middle;
-
-        padding: 10px;
-
-    }
-
-
-    .message-column {
-
-        min-width: 300px;
-
-        max-width: 500px;
-
-        white-space: normal;
-
-    }
-
-
-    /* -------------------------------------------------------
-       STATUS BADGES
-    ------------------------------------------------------- */
-
-    .status-badge {
-
-        display: inline-block;
-
-        padding: 4px 9px;
-
-        border-radius: 5px;
-
-        font-size: 12px;
-
-        font-weight: bold;
-
-        color: white;
-
-    }
-
-
-    .status-passed {
-
-        background: #198754;
-
-    }
-
-
-    .status-failed {
-
-        background: #dc3545;
-
-    }
-
-
-    .status-other {
-
-        background: #6c757d;
-
-    }
-
-
-    .invoice-group-header td {
-
-        background: #4b3832;
-
-        color: #fff;
-
-        font-weight: 600;
-
-        font-size: 14px;
-
-    }
-
-
-    /* -------------------------------------------------------
-       PAGINATION
-    ------------------------------------------------------- */
-
-    .pagination-container {
-
-        display: flex;
-
-        justify-content: center;
-
-        align-items: center;
-
-        gap: 6px;
-
-        margin-top: 25px;
-
-        flex-wrap: wrap;
-
-    }
-
-
-    #pageNumbers {
-
-        display: flex;
-
-        gap: 5px;
-
-    }
-
-
-    .pagination-button {
-
-        border: 1px solid #0077b6;
-
-        background: white;
-
-        color: #0077b6;
-
-        padding: 7px 12px;
-
-        border-radius: 5px;
-
-        cursor: pointer;
-
-        font-size: 14px;
-
-    }
-
-
-    .pagination-button:hover {
-
-        background: #0077b6;
-
-        color: white;
-
-    }
-
-
-    .pagination-button:disabled {
-
-        background: #e9ecef;
-
-        color: #999;
-
-        border-color: #ddd;
-
-        cursor: not-allowed;
-
-    }
-
-
-    .page-number {
-
-        border: 1px solid #0077b6;
-
-        background: white;
-
-        color: #0077b6;
-
-        padding: 7px 11px;
-
-        border-radius: 5px;
-
-        cursor: pointer;
-
-        font-size: 14px;
-
-    }
-
-
-    .page-number:hover {
-
-        background: #0077b6;
-
-        color: white;
-
-    }
-
-
-    .page-number.active {
-
-        background: #0077b6;
-
-        color: white;
-
-    }
-
-
-    /* -------------------------------------------------------
-       ROW INFORMATION
-    ------------------------------------------------------- */
-
-    .row-information {
-
-        text-align: center;
-
-        margin-top: 12px;
-
-        color: #666;
-
-        font-size: 14px;
-
-    }
-
-
-    /* -------------------------------------------------------
-       EMPTY STATE
-    ------------------------------------------------------- */
-
-    .empty-validation {
-
-        text-align: center;
-
-        padding: 70px 20px;
-
-    }
-
-
-    .empty-icon {
-
-        font-size: 50px;
-
-        margin-bottom: 15px;
-
-    }
-
-
-    .empty-validation h4 {
-
-        color: #333;
-
-        margin-bottom: 10px;
-
-    }
-
-
-    .empty-validation p {
-
-        color: #666;
-
-        margin-bottom: 5px;
-
-    }
-
-
-    .empty-subtext {
-
-        font-size: 14px;
-
-        margin-bottom: 25px !important;
-
-    }
-
-
-    .upload-button {
-
-        display: inline-block;
-
-        background: #0077b6;
-
-        color: white;
-
-        padding: 10px 18px;
-
-        border-radius: 7px;
-
-        text-decoration: none;
-
-        margin-top: 10px;
-
-    }
-
-
-    .upload-button:hover {
-
-        background: #023e8a;
-
-        color: white;
-
-        text-decoration: none;
-
-    }
-
-
-    /* -------------------------------------------------------
-       RESPONSIVE
-    ------------------------------------------------------- */
-
-    @media (max-width: 768px) {
-
-        .validation-header {
-
-            flex-direction: column;
-
-            align-items: flex-start;
-
-            gap: 15px;
-
-        }
-
-        .refresh-button {
-
-            width: 100%;
-
-            text-align: center;
-
-        }
-
-    }
-
-</style>
-
-
-<!-- =========================================================
-     PAGINATION JAVASCRIPT
-========================================================= -->
-
+<div class="card">
+    {% if invoice_groups %}
+    <div class="table-responsive">
+        <table class="table table-hover" id="validationTable">
+            <thead>
+                <tr>
+                    <th>Invoice ID</th>
+                    <th>Invoice number</th>
+                    <th>Check</th>
+                    <th>Status</th>
+                    <th>Message</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            {% for group in invoice_groups %}
+            <tbody class="invoice-group">
+                <tr class="invoice-group-header">
+                    <td colspan="6">
+                        Invoice {{ group.invoice_id }}
+                        — {{ group.invoice_number or "—" }}
+                        ({{ group.results|length }} checks)
+                    </td>
+                </tr>
+                {% for result in group.results %}
+                <tr>
+                    <td>{{ result.invoice_id or "-" }}</td>
+                    <td>{{ result.invoice_number or "—" }}</td>
+                    <td>{{ result.validation_type or "—" }}</td>
+                    <td>
+                        {% if result.status|string|upper == "PASSED" %}
+                            <span class="status-badge status-passed">Passed</span>
+                        {% elif result.status|string|upper == "FAILED" %}
+                            <span class="status-badge status-failed">Failed</span>
+                        {% else %}
+                            <span class="status-badge status-other">{{ result.status or "—" }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="message-column">{{ result.message or "—" }}</td>
+                    <td>
+                        {% if result.validation_date %}
+                            {{ result.validation_date }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% endfor %}
+        </table>
+    </div>
+
+    <div class="pagination-container" id="paginationContainer">
+        <button id="previousButton" class="pagination-button" type="button" onclick="previousPage()">Previous</button>
+        <div id="pageNumbers"></div>
+        <button id="nextButton" class="pagination-button" type="button" onclick="nextPage()">Next</button>
+    </div>
+    <div class="row-information" id="rowInformation"></div>
+    {% else %}
+    <div class="empty-validation">
+        <h4>No validation results yet</h4>
+        <p>Upload an invoice and let the pipeline run checks against vendor data and policy.</p>
+        <a href="{{ url_for('admin_invoice_upload') }}" class="btn btn-primary" style="margin-top:16px;">Go to invoice upload</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
 {% if invoice_groups %}
-
 <script>
-
     const groupsPerPage = 20;
-
     let currentPage = 1;
-
-    const groups = Array.from(
-        document.querySelectorAll("#validationTable tbody.invoice-group")
-    );
-
+    const groups = Array.from(document.querySelectorAll("#validationTable tbody.invoice-group"));
     const totalGroups = groups.length;
-
-    const totalPages = Math.max(
-        1,
-        Math.ceil(totalGroups / groupsPerPage)
-    );
-
+    const totalPages = Math.max(1, Math.ceil(totalGroups / groupsPerPage));
 
     function displayPage(page) {
-
         currentPage = page;
-
         const start = (page - 1) * groupsPerPage;
-
         const end = start + groupsPerPage;
-
         groups.forEach(function(group, index) {
-            group.style.display =
-                index >= start && index < end ? "" : "none";
+            group.style.display = index >= start && index < end ? "" : "none";
         });
-
-        const previousButton =
-            document.getElementById("previousButton");
-        previousButton.disabled = currentPage === 1;
-
-        const nextButton =
-            document.getElementById("nextButton");
-        nextButton.disabled = currentPage === totalPages;
-
-        const pageNumbers =
-            document.getElementById("pageNumbers");
+        document.getElementById("previousButton").disabled = currentPage === 1;
+        document.getElementById("nextButton").disabled = currentPage === totalPages;
+        const pageNumbers = document.getElementById("pageNumbers");
         pageNumbers.innerHTML = "";
-
         for (let i = 1; i <= totalPages; i++) {
             const button = document.createElement("button");
+            button.type = "button";
             button.innerText = i;
             button.className = "page-number";
-            if (i === currentPage) {
-                button.classList.add("active");
-            }
-            button.onclick = function() {
-                displayPage(i);
-            };
+            if (i === currentPage) button.classList.add("active");
+            button.onclick = function() { displayPage(i); };
             pageNumbers.appendChild(button);
         }
-
-        const information =
-            document.getElementById("rowInformation");
         const showingStart = totalGroups === 0 ? 0 : start + 1;
         const showingEnd = Math.min(end, totalGroups);
-        information.innerText =
-            "Showing invoices " +
-            showingStart +
-            " - " +
-            showingEnd +
-            " of " +
-            totalGroups;
-
+        document.getElementById("rowInformation").innerText =
+            "Showing invoices " + showingStart + " – " + showingEnd + " of " + totalGroups;
     }
-
-    function previousPage() {
-        if (currentPage > 1) {
-            displayPage(currentPage - 1);
-        }
-    }
-
-    function nextPage() {
-        if (currentPage < totalPages) {
-            displayPage(currentPage + 1);
-        }
-    }
-
+    function previousPage() { if (currentPage > 1) displayPage(currentPage - 1); }
+    function nextPage() { if (currentPage < totalPages) displayPage(currentPage + 1); }
     displayPage(1);
-
 </script>
-
 {% endif %}
-
 {% endblock %}

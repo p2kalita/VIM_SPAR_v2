@@ -36,9 +36,9 @@ _MAX_HISTORY_TURNS = 10
 def build_synthesis_agent() -> Agent:
     logger.debug("[RAG-CHAT] Building CrewAI synthesis agent for model='gemini/%s'", GEMINI_MODEL)
     return Agent(
-        role="SPAR Invoice Intelligence Analyst",
+        role="Cognira Invoice Intelligence Analyst",
         goal="Provide accurate, concise, and grounded answers using retrieved invoice document data.",
-        backstory="You are an expert financial document AI assistant built for SPAR Infosys Invoice Management.",
+        backstory="You are an expert financial document AI assistant built for Cognira Invoice Management.",
         tools=[],
         llm=f"gemini/{GEMINI_MODEL}",
         verbose=False,
@@ -49,7 +49,7 @@ def build_synthesis_agent() -> Agent:
 def build_synthesis_task(agent: Agent, query: str, context_text: str = "") -> Task:
     return Task(
         description=(
-            f"You are analyzing invoice documents for SPAR Vendor Invoice Management.\n\n"
+            f"You are analyzing invoice documents for Cognira Vendor Invoice Management.\n\n"
             f"RETRIEVED INVOICE CONTEXT:\n"
             f"{context_text}\n\n"
             f"USER QUESTION:\n"
@@ -305,7 +305,7 @@ def stream_rag_chat(
         citation_prompt = "Include a '### 📌 Sources & Citations' section at the end referencing the source invoice number(s) and similarity score."
 
     system_instruction = (
-        "You are the SPAR AI Invoice Assistant, an in-house expert AI analyzing vendor invoices and accounts payable documents.\n"
+        "You are the Cognira AI Invoice Assistant, an in-house expert AI analyzing vendor invoices and accounts payable documents.\n"
         "Ground your answers strictly on the retrieved invoice context below.\n"
         "If the information is not present in the context, inform the user clearly and politely.\n\n"
         f"{style_prompt}\n"
