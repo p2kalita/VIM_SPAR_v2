@@ -140,7 +140,14 @@ def register_routes(app):
     @admin_required
     def admin_kpi_dashboard():
         from vim.dashboard.service import get_dashboard_metrics
-        metrics = get_dashboard_metrics()
+        view = request.args.get("view", "all")
+        vendor_id = request.args.get("vendor_id", type=int)
+        approver = request.args.get("approver")
+        metrics = get_dashboard_metrics(
+            view=view,
+            vendor_id=vendor_id,
+            approver=approver,
+        )
         return render_template('vim_admin_kpi_dashboard.html', metrics=metrics)
 
     @app.route('/admin/issues', methods=['GET', 'POST'])
@@ -2434,20 +2441,78 @@ def register_routes(app):
 
     # ---------------- INVOICE DOCUMENT RESOLVER HELPER ----------------
     def _resolve_document_path(storage_path, filename=None):
-        if not storage_path:
+        if not storage_path and not filename:
             return None
-        p = Path(storage_path)
-        if p.is_file():
-            return p
         from vim.extraction import config as extraction_config
-        candidate = (extraction_config.UPLOAD_DIR / p.name).resolve()
-        if candidate.is_file():
-            return candidate
+        upload_dir = extraction_config.UPLOAD_DIR
+
+        if storage_path:
+            p = Path(storage_path)
+            if p.is_file():
+                return p
+            candidate = (upload_dir / p.name).resolve()
+            if candidate.is_file():
+                return candidate
+
+        names = []
         if filename:
-            candidate_fn = (extraction_config.UPLOAD_DIR / filename).resolve()
-            if candidate_fn.is_file():
-                return candidate_fn
+            names.append(Path(filename).name)
+        if storage_path:
+            names.append(Path(storage_path).name)
+        seen = set()
+        for name in names:
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            direct = (upload_dir / name).resolve()
+            if direct.is_file():
+                return direct
+            matches = [p for p in upload_dir.glob(f"*_{name}") if p.is_file()]
+            if len(matches) == 1:
+                return matches[0]
+            if matches:
+                return max(matches, key=lambda p: p.stat().st_mtime)
         return None
+
+    def _preview_table_rows(file_path, ext):
+        if ext in ("csv", "tsv"):
+            import csv
+            delimiter = "\t" if ext == "tsv" else ","
+            with file_path.open("r", encoding="utf-8-sig", errors="replace", newline="") as fh:
+                sample = fh.read(4096)
+                fh.seek(0)
+                try:
+                    dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
+                    delimiter = dialect.delimiter
+                except csv.Error:
+                    pass
+                rows = list(csv.reader(fh, delimiter=delimiter))
+            return [row for row in rows if any((cell or "").strip() for cell in row)][:200]
+        if ext in ("xlsx", "xls"):
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(file_path, read_only=True, data_only=True)
+                sheet = wb.active
+                rows = []
+                for i, row in enumerate(sheet.iter_rows(values_only=True)):
+                    if i >= 200:
+                        break
+                    cells = ["" if cell is None else str(cell) for cell in row]
+                    if any(cell.strip() for cell in cells):
+                        rows.append(cells)
+                wb.close()
+                return rows
+            except Exception as e:
+                logger.warning("Could not preview spreadsheet %s: %s", file_path.name, e)
+        return []
+
+    def _preview_text(file_path, ext):
+        if ext not in ("txt", "md", "log"):
+            return ""
+        try:
+            return file_path.read_text(encoding="utf-8-sig", errors="replace")[:20000]
+        except Exception:
+            return ""
 
     # ---------------- VIEW INVOICE (NEW WINDOW) ----------------
     @app.route('/admin/invoice/<int:invoice_id>/view', methods=['GET'])
@@ -2465,15 +2530,22 @@ def register_routes(app):
         doc_exists = False
         doc_ext = ""
         resolved_p = None
-        if doc and doc.StoragePath:
+        if doc:
             resolved_p = _resolve_document_path(doc.StoragePath, doc.FileName)
             doc_exists = resolved_p is not None
             if resolved_p:
                 doc_ext = resolved_p.suffix.lower().lstrip('.')
 
         # For PDF and Image documents, redirect directly to document stream for native full-window viewer
-        if doc_exists and doc_ext in ('pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'):
+        if doc_exists and doc_ext in ('pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'):
             return redirect(url_for('admin_invoice_document', invoice_id=invoice_id))
+
+        table_rows = []
+        text_preview = ""
+        if doc_exists and doc_ext in ('csv', 'tsv', 'xlsx', 'xls'):
+            table_rows = _preview_table_rows(resolved_p, doc_ext)
+        if doc_exists and doc_ext in ('txt', 'md', 'log'):
+            text_preview = _preview_text(resolved_p, doc_ext)
 
         # For Word documents (DOCX), parse paragraphs & tables to display in a clean document sheet viewer
         docx_blocks = []
@@ -2511,6 +2583,8 @@ def register_routes(app):
             doc_exists=doc_exists,
             doc_ext=doc_ext,
             docx_blocks=docx_blocks,
+            table_rows=table_rows,
+            text_preview=text_preview,
         )
 
     # ---------------- SERVE INVOICE DOCUMENT (PREVIEW OR DOWNLOAD) ----------------
@@ -2520,7 +2594,7 @@ def register_routes(app):
         """Serve the raw invoice document file (PDF, image, or docx) for preview or download."""
         from vim_database.models import InvoiceDocument
         doc = InvoiceDocument.query.filter_by(InvoiceID=invoice_id).first()
-        if not doc or not doc.StoragePath:
+        if not doc:
             return Response("No document registered for this invoice.", status=404, mimetype='text/plain')
 
         file_path = _resolve_document_path(doc.StoragePath, doc.FileName)

@@ -1,183 +1,165 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %} Admin base {% endblock %}</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Cognira VIM{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='brand.svg') }}" type="image/svg+xml">
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
       rel="stylesheet"
       integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
       crossorigin="anonymous"
     />
-    <link rel="stylesheet" href="/static/style.css" />
-	 <style>
-        .section-title {
-            color: #4b3832;
-            margin-top: 30px;
-            margin-bottom: 15px;
-            border-left: 5px solid #8d6e63;
-            padding-left: 10px;
-        }
-		input[type="file"], button { width: 100%; margin: 10px 0; padding: 10px; }
-        .card {
-            border-radius: 40px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            padding: 40px;
-        }
-        .card {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            transition: 0.3s;
-        }
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-        }
-        a.button {
-            display: inline-block;
-            margin-top: 10px;
-            background: #007bff;
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
-            border-radius: 8px;
-        }
-        a.button:hover {
-            background: #0056b3;
-        }
-
-        .nav-btn {
-            background-color: #0077b6;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 10px 20px;
-            text-decoration: none;
-        }
-        .nav-btn:hover {
-            background-color: #023e8a;
-            color: white;
-        }
-        footer {
-            background: #023e8a;
-            color: white;
-            text-align: center;
-            padding: 15px;
-            margin-top: 40px;
-        }
-		.spinner {
-			border: 8px solid #f3f3f3;
-			border-top: 8px solid brown;
-			border-radius: 50%;
-			width: 60px;
-			height: 60px;
-			animation: spin 0.9s linear infinite;
-		}
-
-		@keyframes spin {
-			0% { transform: rotate(0deg); }
-			100% { transform: rotate(360deg); }
-		}
-    </style>
-  </head>
-  <body>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=20260906j">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
-    <div id="flash-messages">
+    <div id="flash-messages" style="position:fixed; top:16px; right:16px; z-index:80; min-width:280px;">
       {% for category, message in messages %}
-        <div class="alert alert-{{ category }} mt-2 text-center"
-             style="
-               background-color: {% if category == 'error' %}#ffcccc{% elif category == 'success' %}#ccffcc{% else %}#e6e6e6{% endif %};
-               color: {% if category == 'error' %}#b30000{% elif category == 'success' %}#006600{% else %}#333333{% endif %};
-               border: 1px solid {% if category == 'error' %}#b30000{% elif category == 'success' %}#006600{% else %}#999999{% endif %};
-               font-weight: bold;
-               border-radius: 5px;
-               padding: 10px;
-               transition: opacity 0.5s ease;
-             ">
-          {{ message }}
-        </div>
+        <div class="alert alert-{{ category }} mt-2">{{ message }}</div>
       {% endfor %}
     </div>
   {% endif %}
 {% endwith %}
 
-<div id="loading-overlay"
-     style="
-         position: fixed;
-         top: 0; left: 0;
-         width: 100%; height: 100%;
-         background: rgba(255,255,255,0.7);
-         display: none;
-         justify-content: center;
-         align-items: center;
-         z-index: 99999;
-     ">
+<div id="loading-overlay">
     <div class="spinner"></div>
 </div>
+<div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
-    <script>
-      // Wait for page to load
-      document.addEventListener("DOMContentLoaded", function () {
-        // Automatically hide flash messages after 3 seconds (3000 ms)
-        setTimeout(function () {
-          const flashContainer = document.getElementById("flash-messages");
-          if (flashContainer) {
-            flashContainer.style.transition = "opacity 0.5s ease";
-            flashContainer.style.opacity = "0"; // fade out
+<div class="app-shell">
 
-            // Remove completely after fade-out
-            setTimeout(() => flashContainer.remove(), 500);
-          }
-        }, 2000);
-      });
+<aside class="app-sidebar" id="app-sidebar">
+    <a class="brand" href="{{ url_for('admin_activities') }}">
+        <img class="brand-mark" src="{{ url_for('static', filename='brand.svg') }}" alt="Cognira">
+        <span class="brand-copy">
+            <strong>Cognira</strong>
+            <small>AI invoice OS</small>
+        </span>
+    </a>
 
-		document.addEventListener("DOMContentLoaded", function () {
-			const forms = document.querySelectorAll("form");
+    {% set p = request.path %}
+    <div class="sidebar-scroll">
+        <div class="nav-group">
+            <p class="nav-label">Overview</p>
+            <a class="nav-item {% if p == '/admin' %}active{% endif %}" href="{{ url_for('admin_activities') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg>
+                Command Center
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/dashboard') %}active{% endif %}" href="{{ url_for('admin_kpi_dashboard') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-8"/></svg>
+                Invoice Intelligence
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/pipeline') %}active{% endif %}" href="{{ url_for('admin_pipeline_monitor') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="6" cy="12" r="2"/><circle cx="12" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 12h2M14 12h2M12 8v2M12 14v2"/></svg>
+                Pipeline
+            </a>
+        </div>
 
-			forms.forEach(form => {
-				form.addEventListener("submit", function () {
-					document.getElementById("loading-overlay").style.display = "flex";
-				});
-			});
-		});
-	</script>
+        <div class="nav-group">
+            <p class="nav-label">Intelligence</p>
+            <a class="nav-item {% if p.startswith('/admin/invoice_upload') %}active{% endif %}" href="{{ url_for('admin_invoice_upload') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
+                Invoice Upload
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/invoice_extraction') %}active{% endif %}" href="{{ url_for('admin_invoice_extraction') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v6l4 2"/><circle cx="12" cy="14" r="7"/></svg>
+                Extraction
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/invoice_validation') %}active{% endif %}" href="{{ url_for('admin_invoice_validation') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 12 5 5L20 7"/></svg>
+                Validation
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/issues') %}active{% endif %}" href="{{ url_for('admin_vim_issues') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.3 2.8 17a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.3a2 2 0 0 0-3.4 0z"/></svg>
+                Exceptions
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/rejected') %}active{% endif %}" href="{{ url_for('admin_rejected_documents') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 7h8M8 12h5M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
+                Held Documents
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/ai_assistant') or p.startswith('/ai_assistant') %}active{% endif %}" href="{{ url_for('admin_ai_assistant') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 15l.7 2 2 .8-2 .7-.7 2.1-.8-2.1-2-.7 2-.8.8-2z"/></svg>
+                AI Assistant
+            </a>
+        </div>
 
-	
-    <div class="main_page">
-        
-            <header class="header_section">
-                <div class="header_canvas">
-                <img class='logo' src="/static/logo.png" alt="logo" height="80px" width="130px">
-				<h4> AI-Powered Vendor Invoice Management Dashboard	</h4>
-            <div class="nav_side_buttons">
-				<img src="/static/admin_icon.png" alt="logo" height="80px" width="80px">
-                <img src="/static/login_icon.png" alt="">
-                <a class='header_register_button' href="/login"><button>Logout</button></a>
+        <div class="nav-group">
+            <p class="nav-label">Directory</p>
+            <a class="nav-item {% if p.startswith('/admin/vendors') %}active{% endif %}" href="{{ url_for('admin_vendor_activities') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21V8l9-5 9 5v13"/><path d="M9 21v-8h6v8"/></svg>
+                Vendors
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/users') %}active{% endif %}" href="{{ url_for('admin_user_activities') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><circle cx="17" cy="9" r="2"/><path d="M21 20a4.5 4.5 0 0 0-6-4"/></svg>
+                Users
+            </a>
+            <a class="nav-item {% if p.startswith('/admin/approval') %}active{% endif %}" href="{{ url_for('admin_approval') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 12h8M8 16h5"/><path d="M7 3h8l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/></svg>
+                Approvals
+            </a>
+        </div>
+    </div>
+
+    <div class="sidebar-footer">
+        <a class="signout-link" href="{{ url_for('logout') }}">Sign out</a>
+    </div>
+</aside>
+
+<div class="app-main">
+    <header class="app-topbar">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open navigation">☰</button>
+            <div>
+                <h1>{% block page_heading %}{{ self.title() }}{% endblock %}</h1>
+                <p>{% block page_sub %}AI-powered vendor invoice management{% endblock %}</p>
             </div>
-            
-            </header>
+        </div>
+        <div class="topbar-right">
+            <span class="ai-pill"><span class="pulse" style="width:7px;height:7px;border-radius:50%;background:#34d399;display:inline-block;"></span> Models online</span>
+            <a class="btn btn-primary btn-sm" href="{{ url_for('admin_ai_assistant') }}">Ask AI</a>
+        </div>
+    </header>
 
-            <main class="main_section">
-                {% block content %}
+    <main class="app-content">
+        {% block content %}{% endblock %}
+    </main>
 
-                {% endblock %}
-            </main>
+    <footer class="app-footer">
+        Cognira · Vendor Invoice Management · extraction, validation, and approval
+    </footer>
+</div>
+</div>
 
-            <footer class="footer_section">
-                <div class="footer_canvas"></div>
-                <p>
-                    &copy; 2026 Vendor Invoice Management (SPAR Infosys) all rights reserved
-                </p>
-            </footer>
-  </body>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () {
+      const flashContainer = document.getElementById("flash-messages");
+      if (flashContainer) {
+        flashContainer.style.transition = "opacity 0.5s ease";
+        flashContainer.style.opacity = "0";
+        setTimeout(() => flashContainer.remove(), 500);
+      }
+    }, 2200);
+
+    document.querySelectorAll("form").forEach(form => {
+      form.addEventListener("submit", function () {
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "grid";
+      });
+    });
+
+    const shell = document.querySelector(".app-shell");
+    const toggle = document.getElementById("menu-toggle");
+    const backdrop = document.getElementById("sidebar-backdrop");
+    function closeNav() { shell.classList.remove("nav-open"); }
+    if (toggle) toggle.addEventListener("click", () => shell.classList.toggle("nav-open"));
+    if (backdrop) backdrop.addEventListener("click", closeNav);
+  });
+</script>
+{% block extra_js %}{% endblock %}
+</body>
 </html>

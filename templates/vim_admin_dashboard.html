@@ -1,95 +1,88 @@
 {% extends 'admin_base.html' %}
 
-{% block title %} Admin Dashboard {% endblock %}
+{% block title %}Command Center{% endblock %}
+{% block page_sub %}Route invoices through AI extraction, validation, and approval{% endblock %}
 
 {% block content %}
-<style>
-    .container .card {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-    }
-    .container .card p {
-        flex: 1 1 auto;
-        margin-bottom: 16px;
-    }
-    .container .card a.button {
-        margin-top: auto;
-        align-self: center;
-    }
-</style>
-<div class="container">
-
-    <div class="card">
-        <h3>🏢 Vendor Management</h3>
-        <p>Register, update, and manage vendor profiles and master data.</p>
-        <a class="button" href="/admin/vendors">Open</a>
+<div class="hub-intro">
+    <div>
+        <p class="eyebrow" style="color:#6d28d9; border-color:#ddd6fe; background:#f5f3ff;">
+            <span class="eyebrow-dot"></span> Operations
+        </p>
+        <h2>What should the models work on next?</h2>
+        <p>Upload, extract, validate, and ask the assistant — all from one control surface.</p>
     </div>
+</div>
 
-    <div class="card">
-        <h3>✅ Approval Management</h3>
-        <p>Assign invoices to authorized approvers and manage approval records.</p>
-        <a class="button" href="/admin/approval">Open</a>
-    </div>
- 
-    <div class="card">
-        <h3>👥 User Management</h3>
-        <p>Add, update, and manage vendor users, approvers, and administrators.</p>
-        <a class="button" href="/admin/users">Open</a>
-    </div>
+<div class="hub-grid">
+    <a class="hub-card hub-card--featured" href="{{ url_for('admin_ai_assistant') }}">
+        <div class="hub-icon">◈</div>
+        <h3>AI Assistant</h3>
+        <p>Ask grounded questions about invoices, vendors, taxes, and policies. The RAG workspace stays inside Cognira.</p>
+        <span class="hub-cta">Open assistant →</span>
+    </a>
 
-   <!-- <div class="card">
-        <h3>⚙️ System Configuration</h3>
-        <p>Manage application settings, AI models, OCR providers, and workflow parameters.</p>
-        <a class="button" href="/admin/settings">Open</a>
-   </div> -->
-	
-    <div class="card">
-        <h3>📄 Invoice Upload</h3>
-        <p>Upload invoices in PDF, JPG, PNG, or scanned document formats.</p>
-        <a class="button" href="/admin/invoice_upload">Open</a>
-    </div>
+    <a class="hub-card" href="{{ url_for('admin_kpi_dashboard') }}">
+        <div class="hub-icon">◉</div>
+        <h3>Invoice Intelligence</h3>
+        <p>Queues, overdue value, held documents, and vendor spend in one board.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <div class="card">
-        <h3>🗂 Rejected Documents</h3>
-        <p>Review uploads held because they did not look like invoices, the vendor name could not be read, or the vendor is not registered.</p>
-        <a class="button" href="/admin/rejected_documents">Open</a>
-    </div>
+    <a class="hub-card" href="{{ url_for('admin_invoice_upload') }}">
+        <div class="hub-icon">↑</div>
+        <h3>Invoice Upload</h3>
+        <p>Drop PDFs, scans, or office files. AI classifies and extracts in one pass.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <div class="card">
-        <h3>🤖 Invoice Data Extraction</h3>
-        <p>Extract invoice details automatically using OCR and AI-powered document processing.</p>
-        <a class="button" href="/admin/invoice_extraction">Open</a>
-    </div>
+    <a class="hub-card" href="{{ url_for('admin_invoice_extraction') }}">
+        <div class="hub-icon">✦</div>
+        <h3>Extraction</h3>
+        <p>Review vendor, totals, taxes, and line items pulled from each document.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <div class="card">
-        <h3>✔ Invoice Validation</h3>
-        <p>Validate invoice data against business rules, vendor information, and purchase orders.</p>
-        <a class="button" href="/admin/invoice_validation">Open</a>
-    </div>
+    <a class="hub-card" href="{{ url_for('admin_invoice_validation') }}">
+        <div class="hub-icon">✓</div>
+        <h3>Validation</h3>
+        <p>See which invoices passed policy, vendor, and PO checks — and which need a human.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <div class="card">
-		<h3>🚨 Validation Issues & Exceptions</h3>
-		<p>Monitor invoice validation failures, data quality issues, duplicate invoices, and processing exceptions.</p>
-		<a class="button" href="/admin/issues">Open</a>
-	</div>
+    <a class="hub-card" href="{{ url_for('admin_vim_issues') }}">
+        <div class="hub-icon">!</div>
+        <h3>Exceptions</h3>
+        <p>Duplicates, data-quality misses, and processing failures in one queue.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <div class="card">
-        <h3>🧠 AI Assistant (RAG)</h3>
-        <p>Ask questions about invoices, policies, vendors, and documents using AI-powered search.</p>
-        <a class="button" href="/admin/ai_assistant">Open</a>
-    </div>
+    <a class="hub-card" href="{{ url_for('admin_rejected_documents') }}">
+        <div class="hub-icon">◻</div>
+        <h3>Held Documents</h3>
+        <p>Uploads that were not invoices, had no vendor name, or are unregistered.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <!-- <div class="card">
-        <h3>📚 Knowledge Base</h3>
-        <p>Manage policies, contracts, vendor documents, and RAG knowledge sources.</p>
-        <a class="button" href="/admin/knowledgebase">Open</a>
-    </div> -->
+    <a class="hub-card" href="{{ url_for('admin_vendor_activities') }}">
+        <div class="hub-icon">⌂</div>
+        <h3>Vendors</h3>
+        <p>Maintain vendor master data used for matching and validation.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 
-    <div class="card">
-        <h3>📈 Analytics & Dashboard</h3>
-        <p>Monitor invoice processing status, pending approvals, and business KPIs in real time.</p>
-        <a class="button" href="{{ url_for('admin_kpi_dashboard') }}">Open</a>
-    </div>
+    <a class="hub-card" href="{{ url_for('admin_user_activities') }}">
+        <div class="hub-icon">☺</div>
+        <h3>Users</h3>
+        <p>Provision vendor users, approvers, and administrators.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
+
+    <a class="hub-card" href="{{ url_for('admin_approval') }}">
+        <div class="hub-icon">☑</div>
+        <h3>Approvals</h3>
+        <p>Assign invoices to approvers and track every decision.</p>
+        <span class="hub-cta">Open →</span>
+    </a>
 </div>
 {% endblock %}

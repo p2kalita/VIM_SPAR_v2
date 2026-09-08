@@ -4,32 +4,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SPAR VIM — AI Invoice RAG Assistant</title>
-  <meta name="description" content="SPAR Vendor Invoice Management AI Chatbot powered by Gemini RAG." />
+  <title>Cognira VIM — AI Invoice RAG Assistant</title>
+  <meta name="description" content="Cognira Vendor Invoice Management AI Chatbot powered by Gemini RAG." />
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
-  <link rel="stylesheet" href="/static/rag_chat/style.css?v=2" />
+  <link rel="stylesheet" href="/static/style.css?v=20260906c" />
+  <link rel="stylesheet" href="/static/rag_chat/style.css?v=20260906c" />
 </head>
 
 <body>
 
-  <!-- ── Header (Exact Validation Dashboard Layout) ─────────── -->
-  <header class="header_section" id="topbar">
-    <div class="header_canvas">
-      <a href="/admin">
-        <img class="logo" src="/static/logo.png" alt="logo" height="80px" width="130px">
-      </a>
-      <h4>AI-Powered Vendor Invoice Management Dashboard</h4>
-      <div class="nav_side_buttons">
-        <a class="header_dashboard_button" href="/admin"><button type="button">Dashboard</button></a>
-        <button type="button" id="settings-btn" aria-label="Open settings">Settings</button>
-        <img src="/static/admin_icon.png" alt="admin logo" height="80px" width="80px">
-      </div>
+  <header class="rag-topbar" id="topbar">
+    <a class="brand" href="/admin">
+      <img class="brand-mark" src="/static/brand.svg" alt="Cognira">
+      <span class="brand-copy">
+        <strong>Cognira</strong>
+        <small>RAG assistant</small>
+      </span>
+    </a>
+    <div class="nav_side_buttons">
+      <a class="btn btn-secondary btn-sm" href="/admin">Command Center</a>
+      <button type="button" id="settings-btn" class="btn btn-primary btn-sm" aria-label="Open settings">Settings</button>
     </div>
   </header>
 
@@ -46,7 +45,7 @@
           </svg>
         </span>
         <div class="model-banner-text">
-          <p class="model-banner-title">SPAR In-house AI Model <span id="model-name-display">Gemini RAG</span> Active
+          <p class="model-banner-title">Cognira In-house AI Model <span id="model-name-display">Gemini RAG</span> Active
           </p>
           <p class="model-banner-sub">Running securely within our infrastructure. Your data never leaves our premises.
           </p>

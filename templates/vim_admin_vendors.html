@@ -1,202 +1,106 @@
 {% extends 'admin_base.html' %}
 
-{% block title %} User Management {% endblock %}
+{% block title %}Vendor Management{% endblock %}
+{% block page_sub %}Master data used for matching, validation, and user assignment{% endblock %}
 
 {% block content %}
-
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item">
-            <a href="/admin">Dashboard</a>
-        </li>
-        <li class="breadcrumb-item active">
-            User Management
-        </li>
-    </ol>
-</nav>
-
-<div class="container-fluid mt-3">
-
-    <div class="card p-4">
-
-        <div class="d-flex justify-content-between">
-
-            <div>
-                <h2>🏢 Vendor Management</h2>
-                <p>
-                    Register, update and manage vendor profiles and master data.
-                </p>
-            </div>
-
-            <div>
-                <a href="/admin" class="btn btn-primary">
-                    🏠 Dashboard
-                </a>
-            </div>
-
-        </div>
-
-        <hr>
-
-        <form method="POST"
-              action="/admin/vendors/add">
-
-            <div class="row">
-
-                <div class="col-md-4 mb-3">
-                    <label>Vendor Name</label>
-                    <input type="text"
-                           name="vendor_name"
-                           class="form-control"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>GST Number</label>
-                    <input type="text"
-                           name="gst_number"
-                           class="form-control"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Email</label>
-                    <input type="email"
-                           name="email"
-                           class="form-control"
-                           required>
-                </div>
-
-                <div class="col-md-6 mb-3">
-                    <label>Address</label>
-                    <textarea name="address"
-                              class="form-control"
-                              rows="3"></textarea>
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <label>Phone Number</label>
-                    <input type="text"
-                           name="phone"
-                           class="form-control">
-                </div>
-
-                <div class="col-md-3 mb-3">
-                    <label>Status</label>
-
-                    <select name="status"
-                            class="form-control">
-
-                        <option value="1">
-                            Active
-                        </option>
-
-                        <option value="0">
-                            Inactive
-                        </option>
-
-                    </select>
-                </div>
-
-            </div>
-
-            <button class="btn btn-success"
-                    type="submit">
-
-                ➕ Add Vendor
-
-            </button>
-
-        </form>
-
+<div class="hub-intro">
+    <div>
+        <p class="eyebrow" style="color:#6d28d9; border-color:#ddd6fe; background:#f5f3ff;">
+            <span class="eyebrow-dot"></span> Directory
+        </p>
+        <h2>Vendor management</h2>
+        <p>Register vendors, keep GST and contact details current, and disable records that should no longer match.</p>
     </div>
+</div>
 
-    <br>
+<div class="card">
+    <h3>Add vendor</h3>
+    <p class="muted" style="margin-bottom:18px;">New vendors become available for invoice matching as soon as they are saved.</p>
+    <form method="POST" action="/admin/vendors/add">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label>Vendor name</label>
+                <input type="text" name="vendor_name" class="form-control" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>GST number</label>
+                <input type="text" name="gst_number" class="form-control" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Email</label>
+                <input type="email" name="email" class="form-control" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label>Address</label>
+                <textarea name="address" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="col-md-3 mb-3">
+                <label>Phone number</label>
+                <input type="text" name="phone" class="form-control">
+            </div>
+            <div class="col-md-3 mb-3">
+                <label>Status</label>
+                <select name="status" class="form-control">
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                </select>
+            </div>
+        </div>
+        <button class="btn btn-success" type="submit">Add vendor</button>
+    </form>
+</div>
 
-    <div class="card p-4">
-
-        <h3>Registered Vendors</h3>
-
-        <table class="table table-bordered table-hover">
-
-            <thead class="table-primary">
-
+<div class="card dir-section">
+    <h3>Registered vendors</h3>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Vendor Name</th>
-                    <th>GST Number</th>
+                    <th>Vendor name</th>
+                    <th>GST number</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Status</th>
-                    <th width="220">Actions</th>
+                    <th>Actions</th>
                 </tr>
-
             </thead>
-
             <tbody>
-
                 {% for vendor in vendors %}
-
                 <tr>
-
                     <td>{{ vendor.VendorID }}</td>
                     <td>{{ vendor.VendorName }}</td>
                     <td>{{ vendor.GSTNumber }}</td>
                     <td>{{ vendor.Email }}</td>
                     <td>{{ vendor.PhoneNumber }}</td>
-
                     <td>
-
                         {% if vendor.Status == 1 %}
-                            <span class="badge bg-success">
-                                Active
-                            </span>
+                            <span class="status-badge status-passed">Active</span>
                         {% else %}
-                            <span class="badge bg-danger">
-                                Inactive
-                            </span>
+                            <span class="status-badge status-failed">Inactive</span>
                         {% endif %}
-
                     </td>
-
                     <td>
-
-                        <a href="/admin/vendors/edit/{{ vendor.VendorID }}"
-                           class="btn btn-warning btn-sm">
-                            Edit
-                        </a>
-
-                        <form method="POST"
-                              action="/admin/vendors/toggle/{{ vendor.VendorID }}"
-                              style="display:inline;">
-                            <button type="submit"
-                                    class="btn btn-secondary btn-sm">
-                                Enable/Disable
-                            </button>
-                        </form>
-
-                        <form method="POST"
-                              action="/admin/vendors/delete/{{ vendor.VendorID }}"
-                              style="display:inline;"
-                              onsubmit="return confirm('Delete Vendor?')">
-                            <button type="submit"
-                                    class="btn btn-danger btn-sm">
-                                Delete
-                            </button>
-                        </form>
-
+                        <div class="dir-actions">
+                            <a href="/admin/vendors/edit/{{ vendor.VendorID }}" class="btn btn-warning btn-sm">Edit</a>
+                            <form method="POST" action="/admin/vendors/toggle/{{ vendor.VendorID }}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Enable / disable</button>
+                            </form>
+                            <form method="POST" action="/admin/vendors/delete/{{ vendor.VendorID }}"
+                                  onsubmit="return confirm('Delete this vendor?')">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
                     </td>
-
                 </tr>
-
+                {% else %}
+                <tr>
+                    <td colspan="7" class="muted">No vendors registered yet.</td>
+                </tr>
                 {% endfor %}
-
             </tbody>
-
         </table>
-
     </div>
-
 </div>
-
 {% endblock %}

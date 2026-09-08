@@ -1,5 +1,5 @@
 /* ──────────────────────────────────────────────────────────
-   SPAR AI Invoice RAG Chatbot — Frontend Logic
+   Cognira AI Invoice RAG Chatbot — Frontend Logic
    Integrated Single UI Chatbot (Vanilla JS + SSE Streaming)
    ────────────────────────────────────────────────────────── */
 

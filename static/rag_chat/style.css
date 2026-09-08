@@ -1,5 +1,5 @@
 /* ============================================================
-   SPAR AI Invoice RAG Chatbot — Design System & Styles
+   Cognira AI Invoice RAG Chatbot — Design System & Styles
    Integrated Single UI Chatbot
    ============================================================ */
 
@@ -46,9 +46,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { font-size: 16px; }
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--white);
-  color: var(--gray-900);
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  background: #ffffff;
+  color: #111827;
   height: 100vh;
   overflow: hidden;
   display: flex;
@@ -58,71 +58,31 @@ button  { cursor: pointer; border: none; background: none; font-family: inherit;
 input, textarea, select { font-family: inherit; }
 a { text-decoration: none; }
 
-/* ── Header Section (Exact Validation Dashboard Header) ──────── */
-.header_section, #topbar {
-  padding: 10px 4% !important;
-  border-bottom: 1px solid white !important;
-  background-color: #090f22 !important;
-  flex-shrink: 0 !important;
-  z-index: 100 !important;
-  width: 100% !important;
+/* ── Compact AI topbar ──────── */
+.rag-topbar, #topbar {
+  padding: 12px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: #070b16;
+  flex-shrink: 0;
+  z-index: 100;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 64px;
 }
-
-.header_canvas {
-  padding: 5px !important;
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  box-shadow: 
-    inset 0 0 100px rgba(255, 255, 255, 0.11),
-    0 0 150px rgba(255, 255, 255, 0.25) !important;
-  width: 100% !important;
+.rag-topbar .brand { color: #fff; }
+.rag-topbar .brand-copy small { color: #67e8f9; }
+.rag-topbar .btn-secondary {
+  background: rgba(255,255,255,0.08) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255,255,255,0.16) !important;
+  box-shadow: none !important;
 }
-
-.header_canvas .logo {
-  cursor: pointer;
-  height: 80px;
-  width: 130px;
-  object-fit: contain;
-  display: block;
-}
-
-.header_canvas h4 {
-  color: white;
-  font-family: "Montserrat", sans-serif;
-  font-size: 1.5rem;
-  font-weight: 500;
-  margin: 0;
-  text-align: center;
-}
-
 .nav_side_buttons {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.nav_side_buttons img {
-  height: 80px;
-  width: 80px;
-  object-fit: contain;
-}
-
-.nav_side_buttons button {
-  padding: 9px 25px;
-  background-color: rgba(0, 136, 169, 1);
-  border: none;
-  border-radius: 50px;
-  color: white;
-  font-size: 16px;
-  font-weight: 500;
-  font-family: "Montserrat", sans-serif;
-  cursor: pointer;
-  transition: all 0.3s ease 0s;
-}
-
-.nav_side_buttons button:hover {
-  background-color: rgba(0, 136, 169, 0.8);
 }
 
 /* ── Model info banner (top of main content area) ───────── */
@@ -245,37 +205,8 @@ a { text-decoration: none; }
   transform: translateY(-1px);
 }
 
-@media (max-width: 900px) {
-  .header_canvas h4 {
-    font-size: 1.15rem;
-  }
-}
-
 @media (max-width: 768px) {
-  .header_section {
-    padding: 8px 12px;
-  }
-  .header_canvas h4 {
-    font-size: 0.95rem;
-  }
-  .header_canvas .logo {
-    height: 55px;
-    width: 90px;
-  }
-  .nav_side_buttons img {
-    height: 55px;
-    width: 55px;
-  }
-  .nav_side_buttons button {
-    padding: 6px 14px;
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 580px) {
-  .header_canvas h4 {
-    display: none;
-  }
+  .rag-topbar, #topbar { padding: 10px 14px; }
 }
 
 @media (max-width: 600px) {

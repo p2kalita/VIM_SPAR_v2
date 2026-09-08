@@ -167,8 +167,18 @@
       background: #fafafa;
     }
 
-    /* Fallback / Empty */
-    .doc-empty {
+    .doc-sheet.wide {
+      max-width: 1100px;
+      padding: 36px 28px;
+      overflow-x: auto;
+    }
+
+    .doc-pre {
+      font-family: 'JetBrains Mono', ui-monospace, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
       background: #fff;
       padding: 60px 40px;
       text-align: center;
@@ -243,7 +253,30 @@
 
   <!-- Document Canvas -->
   <div class="viewer-canvas">
-    {% if doc_exists and docx_blocks %}
+    {% if doc_exists and table_rows %}
+      <div class="doc-sheet wide">
+        <div class="doc-heading-title">{{ invoice.InvoiceNumber or document.FileName }}</div>
+        <table class="doc-table">
+          {% for row in table_rows %}
+            {% set is_header_row = loop.first %}
+            <tr>
+              {% for cell in row %}
+                {% if is_header_row %}
+                  <th>{{ cell }}</th>
+                {% else %}
+                  <td>{{ cell }}</td>
+                {% endif %}
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </table>
+      </div>
+    {% elif doc_exists and text_preview %}
+      <div class="doc-sheet">
+        <div class="doc-heading-title">{{ invoice.InvoiceNumber or document.FileName }}</div>
+        <pre class="doc-pre">{{ text_preview }}</pre>
+      </div>
+    {% elif doc_exists and docx_blocks %}
       <div class="doc-sheet">
         {% for b in docx_blocks %}
           {% if b.type == 'p' %}
@@ -275,9 +308,14 @@
       </div>
     {% elif doc_exists and doc_ext == 'pdf' %}
       <iframe src="{{ url_for('admin_invoice_document', invoice_id=invoice.InvoiceID) }}" style="width:100%; height:calc(100vh - 48px); border:none;" title="Invoice Document"></iframe>
-    {% elif doc_exists and doc_ext in ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff'] %}
+    {% elif doc_exists and doc_ext in ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'tiff', 'tif'] %}
       <div style="display:flex; justify-content:center; align-items:center; width:100%; min-height:calc(100vh - 48px);">
         <img src="{{ url_for('admin_invoice_document', invoice_id=invoice.InvoiceID) }}" style="max-width:90%; max-height:90vh; object-fit:contain; box-shadow:0 4px 24px rgba(0,0,0,0.4);" alt="Invoice Document">
+      </div>
+    {% elif doc_exists %}
+      <div class="doc-empty">
+        <h2>Preview not available</h2>
+        <p>{{ (doc_ext or 'This file type')|upper }} can be downloaded, but it cannot be shown in the browser.</p>
       </div>
     {% else %}
       <div class="doc-empty">

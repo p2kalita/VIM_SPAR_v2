@@ -1,126 +1,59 @@
 {% extends 'admin_base.html' %}
 
-{% block title %} Edit Vendor {% endblock %}
+{% block title %}Edit Vendor{% endblock %}
+{% block page_sub %}Update master data used for invoice matching{% endblock %}
 
 {% block content %}
-
-<div class="container-fluid mt-4">
-
-    <div class="card p-4">
-
-        <div class="d-flex justify-content-between">
-
-            <h2>✏️ Edit Vendor</h2>
-
-            <a href="/admin"
-               class="btn btn-primary">
-                🏠 Dashboard
-            </a>
-
-        </div>
-
-        <hr>
-
-        <form method="POST">
-
-            <div class="row">
-
-                <div class="col-md-4 mb-3">
-                    <label>Vendor ID</label>
-                    <input type="text"
-                           class="form-control"
-                           value="{{ vendor.VendorID }}"
-                           readonly>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Vendor Name</label>
-                    <input type="text"
-                           name="vendor_name"
-                           class="form-control"
-                           value="{{ vendor.VendorName }}"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>GST Number</label>
-                    <input type="text"
-                           name="gst_number"
-                           class="form-control"
-                           value="{{ vendor.GSTNumber }}"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Email</label>
-                    <input type="email"
-                           name="email"
-                           class="form-control"
-                           value="{{ vendor.Email }}"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Phone Number</label>
-                    <input type="text"
-                           name="phone"
-                           class="form-control"
-                           value="{{ vendor.PhoneNumber }}">
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Status</label>
-
-                    <select name="status"
-                            class="form-control">
-
-                        <option value="1"
-                            {% if vendor.Status == 1 %}
-                            selected
-                            {% endif %}>
-                            Active
-                        </option>
-
-                        <option value="0"
-                            {% if vendor.Status == 0 %}
-                            selected
-                            {% endif %}>
-                            Inactive
-                        </option>
-
-                    </select>
-                </div>
-
-                <div class="col-md-12 mb-3">
-                    <label>Address</label>
-
-                    <textarea name="address"
-                              rows="4"
-                              class="form-control">{{ vendor.Address }}</textarea>
-                </div>
-
-            </div>
-
-            <hr>
-
-            <button class="btn btn-success">
-                💾 Save Changes
-            </button>
-
-            <a href="/admin/vendors"
-               class="btn btn-secondary">
-                ↩ Vendor List
-            </a>
-
-            <a href="/admin"
-               class="btn btn-primary">
-                🏠 Dashboard
-            </a>
-
-        </form>
-
+<div class="hub-intro">
+    <div>
+        <p class="eyebrow" style="color:#6d28d9; border-color:#ddd6fe; background:#f5f3ff;">
+            <span class="eyebrow-dot"></span> Directory
+        </p>
+        <h2>Edit vendor</h2>
+        <p>{{ vendor.VendorName }}</p>
     </div>
-
+    <a href="{{ url_for('admin_vendor_activities') }}" class="btn btn-secondary">Back to vendors</a>
 </div>
 
+<div class="card">
+    <form method="POST">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label>Vendor ID</label>
+                <input type="text" class="form-control" value="{{ vendor.VendorID }}" readonly>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Vendor name</label>
+                <input type="text" name="vendor_name" class="form-control" value="{{ vendor.VendorName }}" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>GST number</label>
+                <input type="text" name="gst_number" class="form-control" value="{{ vendor.GSTNumber }}" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Email</label>
+                <input type="email" name="email" class="form-control" value="{{ vendor.Email }}" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Phone number</label>
+                <input type="text" name="phone" class="form-control" value="{{ vendor.PhoneNumber }}">
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Status</label>
+                <select name="status" class="form-control">
+                    <option value="1" {% if vendor.Status == 1 %}selected{% endif %}>Active</option>
+                    <option value="0" {% if vendor.Status == 0 %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <div class="col-md-12 mb-3">
+                <label>Address</label>
+                <textarea name="address" rows="4" class="form-control">{{ vendor.Address }}</textarea>
+            </div>
+        </div>
+        <div class="dir-toolbar">
+            <button class="btn btn-success" type="submit">Save changes</button>
+            <a href="{{ url_for('admin_vendor_activities') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
 {% endblock %}

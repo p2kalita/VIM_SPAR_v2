@@ -1,203 +1,114 @@
 {% extends 'admin_base.html' %}
 
-{% block title %} User Management {% endblock %}
+{% block title %}User Management{% endblock %}
+{% block page_sub %}Vendor users, approvers, and administrators{% endblock %}
 
 {% block content %}
-
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item">
-            <a href="/admin">Dashboard</a>
-        </li>
-        <li class="breadcrumb-item active">
-            User Management
-        </li>
-    </ol>
-</nav>
-
-<div class="container-fluid mt-3">
-
-    <div class="card p-4">
-
-        <h2>👥 User Management</h2>
-        <p>
-            Add, update and manage Vendor Users, Approvers and Administrators.
+<div class="hub-intro">
+    <div>
+        <p class="eyebrow" style="color:#6d28d9; border-color:#ddd6fe; background:#f5f3ff;">
+            <span class="eyebrow-dot"></span> Directory
         </p>
-
-        <hr>
-
-        <!-- Add User Form -->
-        <form method="POST" action="/admin/users/add">
-
-            <div class="row">
-
-                <div class="col-md-4 mb-3">
-                    <label>User Name</label>
-                    <input type="text"
-                           name="username"
-                           class="form-control"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Email</label>
-                    <input type="email"
-                           name="email"
-                           class="form-control"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Password</label>
-                    <input type="password"
-                           name="password"
-                           class="form-control"
-                           required>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Role</label>
-
-                    <select name="role"
-                            class="form-control">
-
-                        <option value="vendor">Vendor User</option>
-                        <option value="approver">Approver</option>
-                        <option value="admin">Administrator</option>
-
-                    </select>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Vendor</label>
-
-                    <select name="vendor_id"
-                            class="form-control">
-
-                        {% for vendor in vendors %}
-                        <option value="{{ vendor.VendorID }}">
-                            {{ vendor.VendorName }}
-                        </option>
-                        {% endfor %}
-
-                    </select>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                    <label>Status</label>
-
-                    <select name="is_active"
-                            class="form-control">
-
-                        <option value="1">Active</option>
-                        <option value="0">Inactive</option>
-
-                    </select>
-                </div>
-
-            </div>
-
-            <button type="submit"
-                    class="btn btn-success">
-
-                ➕ Add User
-
-            </button>
-
-        </form>
-
+        <h2>User management</h2>
+        <p>Create accounts, assign roles, map users to vendors, and disable access without deleting history.</p>
     </div>
+</div>
 
-    <br>
+<div class="card">
+    <h3>Add user</h3>
+    <p class="muted" style="margin-bottom:18px;">Administrators, approvers, and vendor users all start from this form.</p>
+    <form method="POST" action="/admin/users/add">
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <label>User name</label>
+                <input type="text" name="username" class="form-control" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Email</label>
+                <input type="email" name="email" class="form-control" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Role</label>
+                <select name="role" class="form-control">
+                    <option value="vendor">Vendor user</option>
+                    <option value="approver">Approver</option>
+                    <option value="admin">Administrator</option>
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Vendor</label>
+                <select name="vendor_id" class="form-control">
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.VendorID }}">{{ vendor.VendorName }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label>Status</label>
+                <select name="is_active" class="form-control">
+                    <option value="1">Active</option>
+                    <option value="0">Inactive</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success">Add user</button>
+    </form>
+</div>
 
-    <!-- User List -->
-
-    <div class="card p-4">
-
-        <h3>Registered Users</h3>
-
-        <table class="table table-bordered table-hover">
-
-            <thead class="table-primary">
-
+<div class="card dir-section">
+    <h3>Registered users</h3>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
                 <tr>
                     <th>ID</th>
-                    <th>User Name</th>
+                    <th>User name</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>Vendor</th>
                     <th>Status</th>
-                    <th width="220">Actions</th>
+                    <th>Actions</th>
                 </tr>
-
             </thead>
-
             <tbody>
-
             {% for user in users %}
-
                 <tr>
-
                     <td>{{ user.UserID }}</td>
                     <td>{{ user.Username }}</td>
                     <td>{{ user.Email }}</td>
-                    <td>{{ user.Role }}</td>
-                    <td>{{ user.vendor.VendorName }}</td>
-
+                    <td><span class="status-badge status-other">{{ user.Role }}</span></td>
+                    <td>{{ user.vendor.VendorName if user.vendor else '—' }}</td>
                     <td>
-
                         {% if user.IsActive %}
-                            <span class="badge bg-success">
-                                Active
-                            </span>
+                            <span class="status-badge status-passed">Active</span>
                         {% else %}
-                            <span class="badge bg-danger">
-                                Inactive
-                            </span>
+                            <span class="status-badge status-failed">Inactive</span>
                         {% endif %}
-
                     </td>
-
                     <td>
-
-                         <a href="/admin/users/edit/{{ user.UserID }}"
-                            class="btn btn-warning btn-sm">
-
-                             Edit
-
-                         </a>
-
-                         <form method="POST"
-                               action="/admin/users/toggle/{{ user.UserID }}"
-                               style="display:inline;">
-                             <button type="submit"
-                                     class="btn btn-secondary btn-sm">
-                                 Enable/Disable
-                             </button>
-                         </form>
-
-                         <form method="POST"
-                               action="/admin/users/delete/{{ user.UserID }}"
-                               style="display:inline;"
-                               onsubmit="return confirm('Delete User?')">
-                             <button type="submit"
-                                     class="btn btn-danger btn-sm">
-                                 Delete
-                             </button>
-                         </form>
-
+                        <div class="dir-actions">
+                            <a href="/admin/users/edit/{{ user.UserID }}" class="btn btn-warning btn-sm">Edit</a>
+                            <form method="POST" action="/admin/users/toggle/{{ user.UserID }}">
+                                <button type="submit" class="btn btn-secondary btn-sm">Enable / disable</button>
+                            </form>
+                            <form method="POST" action="/admin/users/delete/{{ user.UserID }}"
+                                  onsubmit="return confirm('Delete this user?')">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </div>
                     </td>
-
                 </tr>
-
+            {% else %}
+                <tr>
+                    <td colspan="7" class="muted">No users registered yet.</td>
+                </tr>
             {% endfor %}
-
             </tbody>
-
         </table>
-
     </div>
-
 </div>
-
 {% endblock %}
