@@ -1,17 +1,37 @@
 {% extends 'admin_base.html' %}
 
 {% block title %}Invoice Intelligence{% endblock %}
-{% block page_sub %}Volume, queues, due dates, and exceptions that still need a person{% endblock %}
+{% block page_sub %}Click a card to filter this board. Click an invoice number to open the document.{% endblock %}
 
 {% block content %}
 {% set k = metrics.kpis %}
+{% set v = metrics.view %}
 {% set status_colors = {
     'Pending Approval': '#f59e0b',
     'Approved': '#34d399',
     'Rejected': '#f43f5e'
 } %}
+{% set status_views = {
+    'Pending Approval': 'pending',
+    'Approved': 'approved',
+    'Rejected': 'rejected'
+} %}
 {% set queue_max = (metrics.approver_queue | map(attribute='pending') | max) if metrics.approver_queue else 1 %}
 {% set vendor_max = (metrics.top_vendors | map(attribute='total_value') | max) if metrics.top_vendors else 1 %}
+
+{% macro filter_url(name, vendor_id=None, approver=None) -%}
+  {%- if v == name and (vendor_id is none or metrics.vendor_id == vendor_id) and (approver is none or metrics.approver == approver) -%}
+    {{ url_for('admin_kpi_dashboard') }}
+  {%- elif vendor_id -%}
+    {{ url_for('admin_kpi_dashboard', view=name, vendor_id=vendor_id) }}
+  {%- elif approver -%}
+    {{ url_for('admin_kpi_dashboard', view=name, approver=approver) }}
+  {%- elif name == 'all' -%}
+    {{ url_for('admin_kpi_dashboard') }}
+  {%- else -%}
+    {{ url_for('admin_kpi_dashboard', view=name) }}
+  {%- endif -%}
+{%- endmacro %}
 
 <div class="hub-intro">
     <div>
@@ -22,19 +42,19 @@
         <p>What is waiting, what is late, and where spend is concentrating — updated {{ metrics.generated_at }}.</p>
     </div>
     <div class="dir-toolbar">
-        <a href="{{ url_for('admin_approval') }}" class="btn btn-primary">Approvals</a>
+        <a href="{{ url_for('admin_approval') }}" class="btn btn-secondary">Approvals</a>
         <a href="{{ url_for('admin_rejected_documents') }}" class="btn btn-secondary">Held documents</a>
         <a href="{{ url_for('admin_vim_issues') }}" class="btn btn-secondary">Exceptions</a>
     </div>
 </div>
 
 <div class="intel-focus">
-    <a class="intel-card" href="{{ url_for('admin_approval') }}">
+    <a class="intel-card {% if v == 'pending' %}is-active{% endif %}" href="{{ filter_url('pending') }}">
         <div class="intel-kicker"><span>Pending approval</span><i class="intel-dot warn"></i></div>
         <div class="intel-value">{{ k.pending_approval }}</div>
-        <div class="intel-sub">Assigned, not yet decided</div>
+        <div class="intel-sub">Click to show assigned invoices not yet decided</div>
     </a>
-    <a class="intel-card" href="{{ url_for('admin_approval') }}">
+    <a class="intel-card {% if v == 'overdue' %}is-active{% endif %}" href="{{ filter_url('overdue') }}">
         <div class="intel-kicker"><span>Overdue</span><i class="intel-dot risk"></i></div>
         <div class="intel-value">{{ k.overdue }}</div>
         <div class="intel-sub">
@@ -42,41 +62,55 @@
             {{ k.due_this_week }} due in 7 days
         </div>
     </a>
-    <a class="intel-card" href="{{ url_for('admin_rejected_documents') }}">
+    <a class="intel-card {% if v == 'held' %}is-active{% endif %}" href="{{ filter_url('held') }}">
         <div class="intel-kicker"><span>Held documents</span><i class="intel-dot"></i></div>
         <div class="intel-value">{{ k.held_documents }}</div>
         <div class="intel-sub">{{ k.held_pending }} awaiting a decision</div>
     </a>
-    <div class="intel-card">
+    <a class="intel-card {% if v == 'month' %}is-active{% endif %}" href="{{ filter_url('month') }}">
         <div class="intel-kicker"><span>Value this month</span><i class="intel-dot ok"></i></div>
         <div class="intel-value">{{ "{:,.0f}".format(k.month_value) }}</div>
         <div class="intel-sub">{{ k.invoices_this_month }} invoices · {{ "{:,.0f}".format(k.total_value) }} all time</div>
-    </div>
+    </a>
 </div>
 
 <div class="intel-strip">
-    <div class="intel-chip-stat">
+    <a class="intel-chip-stat {% if v == 'all' %}is-active{% endif %}" href="{{ filter_url('all') }}">
         <span>Total invoices</span>
         <b>{{ k.total_invoices }}</b>
-    </div>
-    <div class="intel-chip-stat">
+    </a>
+    <a class="intel-chip-stat {% if v == 'week' %}is-active{% endif %}" href="{{ filter_url('week') }}">
         <span>This week</span>
         <b>{{ k.invoices_this_week }}</b>
-    </div>
-    <div class="intel-chip-stat">
+    </a>
+    <a class="intel-chip-stat {% if v == 'approved' %}is-active{% endif %}" href="{{ filter_url('approved') }}">
         <span>Approved</span>
         <b>{{ k.approved }}</b>
-    </div>
-    <div class="intel-chip-stat">
+    </a>
+    <a class="intel-chip-stat {% if v == 'rejected' %}is-active{% endif %}" href="{{ filter_url('rejected') }}">
         <span>Rejected</span>
         <b>{{ k.rejected }}</b>
-    </div>
+    </a>
 </div>
+
+{% if v != 'all' %}
+<div class="intel-banner">
+    <span>
+        Showing <strong>{{ metrics.filter_label }}</strong>
+        · {{ metrics.filtered_count }}
+        {% if v == 'held' %}document{{ 's' if metrics.filtered_count != 1 else '' }}
+        {% else %}invoice{{ 's' if metrics.filtered_count != 1 else '' }}
+            {% if metrics.filtered_value %} · {{ "{:,.2f}".format(metrics.filtered_value) }}{% endif %}
+        {% endif %}
+    </span>
+    <a href="{{ url_for('admin_kpi_dashboard') }}">Clear filter</a>
+</div>
+{% endif %}
 
 <div class="intel-board">
     <section class="intel-panel">
         <h3>Invoice status</h3>
-        <p class="hint">How the current book splits across approval outcomes.</p>
+        <p class="hint">Click a slice or label to filter by outcome.</p>
         {% if metrics.status_counts %}
         <div class="intel-status">
             <div>
@@ -84,26 +118,35 @@
             </div>
             <div class="intel-legend">
                 {% for label, count in metrics.status_counts.items() %}
+                {% set legend_view = status_views.get(label) %}
+                {% if legend_view %}
+                <a class="intel-legend-row {% if v == legend_view %}is-active{% endif %}" href="{{ filter_url(legend_view) }}">
+                    <i style="background: {{ status_colors.get(label, '#7c5cff') }};"></i>
+                    <span>{{ label }}</span>
+                    <b>{{ count }}</b>
+                </a>
+                {% else %}
                 <div class="intel-legend-row">
                     <i style="background: {{ status_colors.get(label, '#7c5cff') }};"></i>
                     <span>{{ label }}</span>
                     <b>{{ count }}</b>
                 </div>
+                {% endif %}
                 {% endfor %}
             </div>
         </div>
         {% else %}
-        <p class="empty-state">No invoices yet.</p>
+        <p class="empty-state">{% if v == 'held' %}Status applies to invoices, not held documents.{% else %}No invoices in this filter.{% endif %}</p>
         {% endif %}
     </section>
 
     <section class="intel-panel">
         <h3>Approver load</h3>
-        <p class="hint">Pending assignments by person — largest queue first.</p>
+        <p class="hint">Click an approver to show only their pending invoices.</p>
         {% if metrics.approver_queue %}
         <div class="intel-queue">
             {% for row in metrics.approver_queue %}
-            <div class="intel-queue-row">
+            <a class="intel-queue-row {% if v == 'approver' and metrics.approver == row.name %}is-active{% endif %}" href="{{ filter_url('approver', approver=row.name) }}">
                 <span>
                     <strong>{{ row.name }}</strong>
                     <em>{{ row.pending }} pending</em>
@@ -111,63 +154,109 @@
                 <div class="intel-track">
                     <div class="intel-fill" style="width: {{ ((row.pending / queue_max) * 100)|round(0) }}%;"></div>
                 </div>
-            </div>
+            </a>
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">No pending approval assignments.</p>
+        <p class="empty-state">No pending approval assignments in this filter.</p>
         {% endif %}
     </section>
 </div>
 
+<section class="intel-panel intel-wide intel-results">
+    <h3>{% if v == 'held' %}Held documents{% else %}{{ metrics.filter_label }}{% endif %}</h3>
+    <p class="hint">
+        {% if v == 'held' %}
+            Click a row to open the held document.
+        {% else %}
+            Click an invoice number to open the original document.
+        {% endif %}
+    </p>
+    {% if v == 'held' %}
+        {% if metrics.held_rows %}
+        <div class="intel-list">
+            {% for row in metrics.held_rows %}
+            <a class="intel-item" href="{{ url_for('admin_rejected_document_detail', rejection_id=row.rejection_id) }}">
+                <i class="intel-rail"></i>
+                <div>
+                    <div class="intel-item-title">{{ row.file_name }}</div>
+                    <div class="intel-item-sub">{{ row.vendor }} · {{ row.invoice_number }}</div>
+                </div>
+                <div class="intel-when">{{ row.reason }}</div>
+                <div class="intel-amt">{{ row.decision }}</div>
+            </a>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No held documents.</p>
+        {% endif %}
+    {% elif metrics.invoice_rows %}
+        <div class="intel-list">
+            {% for row in metrics.invoice_rows %}
+            <a class="intel-item" href="{{ url_for('admin_invoice_view', invoice_id=row.invoice_id) }}" target="_blank" rel="noopener">
+                <i class="intel-rail"></i>
+                <div>
+                    <div class="intel-item-title intel-link">{{ row.invoice_number }}</div>
+                    <div class="intel-item-sub">{{ row.vendor }} · {{ row.invoice_date }}</div>
+                </div>
+                <div class="intel-when">{{ row.status }}</div>
+                <div class="intel-amt">{{ row.currency }} {{ "{:,.2f}".format(row.amount) }}</div>
+            </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="empty-state">No invoices in this filter.</p>
+    {% endif %}
+</section>
+
 <section class="intel-panel intel-wide">
     <h3>Due soon</h3>
-    <p class="hint">Open invoices that are overdue or due within 7 days.</p>
+    <p class="hint">Open invoices that are overdue or due within 7 days. Click to view the document.</p>
     {% if metrics.due_dates %}
     <div class="intel-list">
         {% for row in metrics.due_dates %}
-        <div class="intel-item">
+        <a class="intel-item" href="{{ url_for('admin_invoice_view', invoice_id=row.invoice_id) }}" target="_blank" rel="noopener">
             <i class="intel-rail {{ row.bucket }}"></i>
             <div>
-                <div class="intel-item-title">{{ row.invoice_number }}</div>
+                <div class="intel-item-title intel-link">{{ row.invoice_number }}</div>
                 <div class="intel-item-sub">{{ row.vendor }} · {{ row.due_date }}</div>
             </div>
             <div class="intel-when {{ row.bucket }}">{{ row.when }}</div>
             <div class="intel-amt">{{ row.currency }} {{ "{:,.2f}".format(row.amount) }}</div>
-        </div>
+        </a>
         {% endfor %}
     </div>
     {% else %}
-    <p class="empty-state">No overdue invoices or invoices due in the next 7 days.</p>
+    <p class="empty-state">No overdue invoices or invoices due in the next 7 days in this filter.</p>
     {% endif %}
 </section>
 
 <div class="intel-split">
     <section class="intel-panel">
         <h3>Waiting on an approver</h3>
-        <p class="hint">Oldest pending assignments still open.</p>
+        <p class="hint">Oldest pending assignments. Click to view the invoice.</p>
         {% if metrics.aging %}
             {% for row in metrics.aging %}
-            <div class="intel-mini">
+            <a class="intel-mini" href="{{ url_for('admin_invoice_view', invoice_id=row.invoice_id) }}" target="_blank" rel="noopener">
                 <div>
-                    <div class="intel-item-title">{{ row.invoice_number }}</div>
+                    <div class="intel-item-title intel-link">{{ row.invoice_number }}</div>
                     <div class="intel-item-sub">{{ row.vendor }} · {{ row.approver }}</div>
                 </div>
                 <span class="intel-amt">{% if row.currency %}{{ row.currency }} {% endif %}{{ "{:,.0f}".format(row.amount) }}</span>
                 <span class="intel-days">{{ row.days }}d</span>
-            </div>
+            </a>
             {% endfor %}
         {% else %}
-        <p class="empty-state">No invoices waiting on an approver.</p>
+        <p class="empty-state">No invoices waiting on an approver in this filter.</p>
         {% endif %}
     </section>
 
     <section class="intel-panel">
         <h3>Top vendors</h3>
-        <p class="hint">Highest invoice value in the book.</p>
+        <p class="hint">Click a vendor to filter the board to their invoices.</p>
         {% if metrics.top_vendors %}
             {% for vendor in metrics.top_vendors %}
-            <div class="intel-vendor-row">
+            <a class="intel-vendor-row {% if v == 'vendor' and metrics.vendor_id == vendor.vendor_id %}is-active{% endif %}" href="{{ filter_url('vendor', vendor_id=vendor.vendor_id) }}">
                 <header>
                     <strong>{{ vendor.name }}</strong>
                     <span>{{ vendor.invoice_count }} inv · {{ "{:,.0f}".format(vendor.total_value) }}</span>
@@ -175,10 +264,10 @@
                 <div class="intel-track">
                     <div class="intel-fill" style="width: {{ ((vendor.total_value / vendor_max) * 100)|round(0) if vendor_max else 0 }}%;"></div>
                 </div>
-            </div>
+            </a>
             {% endfor %}
         {% else %}
-        <p class="empty-state">No vendor invoice data yet.</p>
+        <p class="empty-state">No vendor invoice data in this filter.</p>
         {% endif %}
     </section>
 </div>
@@ -195,6 +284,13 @@
         "Approved": "#34d399",
         "Rejected": "#f43f5e"
     };
+    const viewMap = {
+        "Pending Approval": "pending",
+        "Approved": "approved",
+        "Rejected": "rejected"
+    };
+    const currentView = {{ metrics.view | tojson }};
+    const baseUrl = {{ url_for('admin_kpi_dashboard') | tojson }};
     new Chart(document.getElementById("statusChart"), {
         type: "doughnut",
         data: {
@@ -210,7 +306,16 @@
             responsive: true,
             maintainAspectRatio: true,
             cutout: "68%",
-            plugins: { legend: { display: false }, tooltip: { enabled: true } }
+            plugins: { legend: { display: false }, tooltip: { enabled: true } },
+            onClick(_evt, elements, chart) {
+                if (!elements.length) return;
+                const label = chart.data.labels[elements[0].index];
+                const nextView = viewMap[label];
+                if (!nextView) return;
+                window.location.href = nextView === currentView
+                    ? baseUrl
+                    : `${baseUrl}?view=${encodeURIComponent(nextView)}`;
+            }
         }
     });
 </script>

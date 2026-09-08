@@ -148,5 +148,53 @@
         "invoice_number": "INV-2026-103",
         "vendor_id": 9,
         "processed_at": "2026-09-06T19:38:40.965970"
+    },
+    {
+        "invoice_id": 1,
+        "invoice_number": "PS-INV106056",
+        "vendor_id": 1,
+        "processed_at": "2026-09-06T22:44:17.753565"
+    },
+    {
+        "invoice_id": 3,
+        "invoice_number": "CI-2026-001",
+        "vendor_id": 2,
+        "processed_at": "2026-09-07T19:50:25.001514"
+    },
+    {
+        "invoice_id": 4,
+        "invoice_number": "INV-2026-1124",
+        "vendor_id": 3,
+        "processed_at": "2026-09-07T19:50:32.742551"
+    },
+    {
+        "invoice_id": 1,
+        "invoice_number": "CI-2026-001",
+        "vendor_id": 1,
+        "processed_at": "2026-09-08T12:27:51.207960"
+    },
+    {
+        "invoice_id": 2,
+        "invoice_number": "INV-2026-2287",
+        "vendor_id": 2,
+        "processed_at": "2026-09-08T12:27:56.255353"
+    },
+    {
+        "invoice_id": 3,
+        "invoice_number": "PS-INV106056",
+        "vendor_id": 3,
+        "processed_at": "2026-09-08T12:28:02.857064"
+    },
+    {
+        "invoice_id": 1,
+        "invoice_number": "INV-2026-1124",
+        "vendor_id": 1,
+        "processed_at": "2026-09-08T12:41:43.944520"
+    },
+    {
+        "invoice_id": 2,
+        "invoice_number": "PS-INV106056",
+        "vendor_id": 2,
+        "processed_at": "2026-09-08T12:41:47.400759"
     }
 ]
