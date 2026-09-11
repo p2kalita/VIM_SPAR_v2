@@ -92,7 +92,6 @@ ROLE_PERMISSIONS: dict = {
         Permission.INVOICE_VIEW_OWN,
         Permission.INVOICE_APPROVE,
         Permission.REPORT_VIEW,
-        Permission.RAG_QUERY,
     },
 
     "vendor": {

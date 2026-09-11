@@ -16,11 +16,7 @@
                 <small>Approver workspace</small>
             </span>
         </a>
-        {% if session.get('user_id') %}
-        <a href="{{ url_for('user_home', user_id=session.get('user_id')) }}" class="dashboard-btn">Home</a>
-        {% else %}
-        <a href="{{ url_for('home') }}" class="dashboard-btn">Home</a>
-        {% endif %}
+        <a href="{{ url_for('logout') }}" class="dashboard-btn">Sign out</a>
     </header>
 
     <main class="approver-body">
