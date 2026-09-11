@@ -26,17 +26,37 @@ _PERSIST_LOCK_ATTEMPTS = 8
  
 def allowed_file(filename: str) -> bool:
     return Path(filename).suffix.lower() in config.SUPPORTED_EXTENSIONS
+
+
+def _supported_format_list() -> str:
+    return ", ".join(ext.lstrip(".").upper() for ext in config.SUPPORTED_EXTENSIONS)
+
+
+def unsupported_format_message(filename: str) -> str:
+    name = Path(filename or "This file").name
+    ext = Path(name).suffix.lower()
+    if ext:
+        kind = ext.lstrip(".").upper()
+        return (
+            f"{name} is not a supported format ({kind} is not available). "
+            f"Please upload one of: {_supported_format_list()}."
+        )
+    return (
+        f"{name} has no file extension, so this format is not available. "
+        f"Please upload one of: {_supported_format_list()}."
+    )
  
  
 def save_upload(file_storage) -> Path:
     """Save an uploaded file and return its path."""
+    display_name = Path(file_storage.filename or "").name
     original = secure_filename(file_storage.filename or "")
     if not original:
         raise ValueError("No filename provided")
  
-    ext = Path(original).suffix.lower()
+    ext = Path(original).suffix.lower() or Path(display_name).suffix.lower()
     if ext not in config.SUPPORTED_EXTENSIONS:
-        raise ValueError(f"Unsupported file type: {ext}")
+        raise ValueError(unsupported_format_message(display_name or original))
  
     config.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     dest = config.UPLOAD_DIR / f"{uuid4().hex}_{original}"

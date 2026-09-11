@@ -34,6 +34,7 @@
             <input type="file" id="invoice_files" name="invoice_files" multiple
                    accept=".pdf,.docx,.pptx,.html,.xlsx,.xls,.xlsm,.csv,.txt,.jpg,.jpeg,.png,.webp,.bmp,.tiff,.tif"
                    required>
+            <div id="format-warning" class="alert alert-warning mt-3" style="display:none;" role="alert"></div>
 
             <button type="submit" class="btn btn-primary" style="width:100%; margin-top:10px;">
                 Upload &amp; Extract
@@ -172,4 +173,86 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const input = document.getElementById("invoice_files");
+  const warning = document.getElementById("format-warning");
+  const form = input && input.closest("form");
+  if (!input || !warning) return;
+
+  const allowed = new Set(
+    (input.getAttribute("accept") || "")
+      .split(",")
+      .map((item) => item.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const supportedLabel = Array.from(allowed)
+    .map((ext) => ext.replace(".", "").toUpperCase())
+    .join(", ");
+
+  function extensionOf(name) {
+    const base = (name || "").trim();
+    const dot = base.lastIndexOf(".");
+    if (dot <= 0 || dot === base.length - 1) return "";
+    return base.slice(dot).toLowerCase();
+  }
+
+  function showWarning(badFiles) {
+    if (!badFiles.length) {
+      warning.style.display = "none";
+      warning.textContent = "";
+      return;
+    }
+    const names = badFiles.map((file) => file.name).join(", ");
+    const kinds = [...new Set(badFiles.map((file) => {
+      const ext = extensionOf(file.name);
+      return ext ? ext.replace(".", "").toUpperCase() : "unknown";
+    }))];
+    const kindText = kinds.length === 1
+      ? kinds[0] + " is not available"
+      : kinds.join(", ") + " are not available";
+    warning.textContent =
+      names + (badFiles.length === 1 ? " is not a supported format. " : " are not supported formats. ") +
+      kindText + ". Please upload one of: " + supportedLabel + ".";
+    warning.style.display = "block";
+  }
+
+  function filterInput() {
+    const files = Array.from(input.files || []);
+    const good = [];
+    const bad = [];
+    files.forEach((file) => {
+      const ext = extensionOf(file.name);
+      if (ext && allowed.has(ext)) good.push(file);
+      else bad.push(file);
+    });
+    showWarning(bad);
+    if (bad.length) {
+      const data = new DataTransfer();
+      good.forEach((file) => data.items.add(file));
+      input.files = data.files;
+    }
+    return { good, bad };
+  }
+
+  input.addEventListener("change", filterInput);
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      const { good, bad } = filterInput();
+      if (!good.length) {
+        event.preventDefault();
+        const overlay = document.getElementById("loading-overlay");
+        if (overlay) overlay.style.display = "none";
+        if (!bad.length) {
+          warning.textContent = "Please select at least one supported invoice file.";
+          warning.style.display = "block";
+        }
+      }
+    });
+  }
+})();
+</script>
 {% endblock %}
