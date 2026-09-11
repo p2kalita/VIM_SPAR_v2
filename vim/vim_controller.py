@@ -1025,7 +1025,7 @@ def register_routes(app):
                     logger.debug("[UPLOAD] Staged file '%s' -> %s", orig_name, saved_path)
                 except ValueError as e:
                     logger.warning("[UPLOAD] Validation error for '%s': %s", f.filename, e)
-                    flash(str(e), "danger")
+                    flash(str(e), "warning")
                 except OSError as e:
                     logger.error("[UPLOAD] OS error saving '%s': %s", f.filename, e)
                     flash(str(e).strip(), "danger")
