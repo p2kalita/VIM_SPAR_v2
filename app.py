@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from vim.extraction import config as extraction_config
+from flask import session as flask_session
 
 load_dotenv(
     Path(__file__).resolve().parent / ".env",
@@ -63,6 +64,24 @@ def create_app():
 
         register_routes(app)
         logger.info("Routes registered")
+
+        # ----------------------------------------------------------------
+        # RBAC context processor
+        # Injects two helpers into every Jinja2 template:
+        #   can(Permission.XYZ)  -> bool  (check current user's permission)
+        #   Permission           -> the Permission class (for constant names)
+        # Usage in templates:
+        #   {% if can(Permission.INVOICE_APPROVE) %} ... {% endif %}
+        # ----------------------------------------------------------------
+        from vim.rbac import has_permission, Permission
+
+        @app.context_processor
+        def inject_rbac():
+            role = flask_session.get('role', '')
+            return {
+                'can': lambda perm: has_permission(role, perm),
+                'Permission': Permission,
+            }
 
         try:
             db.create_all()

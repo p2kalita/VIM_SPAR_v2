@@ -17,13 +17,22 @@ from vim_database.database import db
 from functools import wraps
 from vim_logger import get_logger
 
+# RBAC — central permission system
+from vim.rbac import permission_required, Permission, has_permission
+
 logger = get_logger("vim.controller")
 
 
 def register_routes(app):
 
-    # ---------------- AUTH HELPERS ----------------
+    # -----------------------------------------------------------------------
+    # AUTH HELPERS
+    # The decorators below are kept for backward-compatibility but now delegate
+    # to the centralised RBAC system in vim/rbac.py.
+    # New routes should use @permission_required(Permission.XYZ) directly.
+    # -----------------------------------------------------------------------
     def login_required(view):
+        """Ensure the user is authenticated (any role)."""
         @wraps(view)
         def wrapped(*args, **kwargs):
             if 'user_id' not in session:
@@ -33,43 +42,57 @@ def register_routes(app):
         return wrapped
 
     def admin_required(view):
-        @wraps(view)
-        def wrapped(*args, **kwargs):
-            if 'user_id' not in session:
-                flash("Please log in to continue.", "warning")
-                return redirect(url_for('login'))
-            if session.get('role') != 'admin':
-                flash("Admin access required.", "danger")
-                return redirect(url_for('login'))
-            return view(*args, **kwargs)
-        return wrapped
+        """Shim: require any admin-level permission (USER_MANAGE is a proxy)."""
+        return permission_required(Permission.USER_MANAGE)(view)
 
-    # ---------------added for approver--------------------
     def approver_required(view):
-       @wraps(view)
-       def wrapped(*args, **kwargs):
-           if 'user_id' not in session:
-               flash("Please log in to continue.", "warning")
-               return redirect(url_for('login'))
-           if session.get('role') != 'approver':
-               flash("Approver access required.", "danger")
-               return redirect(url_for('login'))
-           return view(*args, **kwargs)
-       return wrapped
+        """Shim: require invoice.approve permission."""
+        return permission_required(Permission.INVOICE_APPROVE)(view)
 
     # ---------------- HOME ROUTE ----------------
     @app.route('/')
     def home():
         return render_template('home.html')
 
-    # ---------------- USER HOME (post-login) ----------------
+    # ---------------- USER HOME / VENDOR DASHBOARD (post-login) ----------------
     @app.route('/home/<int:user_id>')
     @login_required
     def user_home(user_id):
+        # Prevent a user from viewing another user's dashboard
         if session['user_id'] != user_id:
             flash("You don't have access to that page.", "danger")
             return redirect(url_for('user_home', user_id=session['user_id']))
-        return render_template('home.html', user_id=user_id)
+
+        # Fetch the vendor record this user belongs to (ABAC: own data only)
+        vendor_id = session.get('vendor_id')
+        vendor = Vendor.query.get(vendor_id) if vendor_id else None
+
+        # Fetch invoices scoped to this vendor
+        invoices = (
+            Invoice.query
+            .filter_by(VendorID=vendor_id)
+            .order_by(Invoice.InvoiceID.desc())
+            .limit(50)
+            .all()
+        ) if vendor_id else []
+
+        # Summary counts for the stat cards
+        total_count    = len(invoices)
+        approved_count = sum(1 for i in invoices if 'approved' in (i.InvoiceStatus or '').lower())
+        rejected_count = sum(1 for i in invoices if 'reject'   in (i.InvoiceStatus or '').lower())
+        pending_count  = sum(1 for i in invoices if 'pending'  in (i.InvoiceStatus or '').lower())
+
+        return render_template(
+            'vendor_dashboard.html',
+            user_id=user_id,
+            vendor=vendor,
+            invoices=invoices,
+            total_count=total_count,
+            approved_count=approved_count,
+            rejected_count=rejected_count,
+            pending_count=pending_count,
+        )
+
 
     # ---------------- LOGIN ----------------
     @app.route('/login', methods=['GET', 'POST'])
@@ -83,8 +106,10 @@ def register_routes(app):
 
             if this_user:
                 if check_password_hash(this_user.PasswordHash, password):
-                    session['user_id'] = this_user.UserID
-                    session['role'] = this_user.Role
+                    session['user_id']   = this_user.UserID
+                    session['role']      = this_user.Role
+                    session['username']  = this_user.Username
+                    session['vendor_id'] = this_user.VendorID   # RBAC: used for vendor data scoping
                     logger.info("[AUTH] Login successful: UserID=%s, Role=%s, Username='%s'",
                                 this_user.UserID, this_user.Role, this_user.Username)
                     flash(f"Welcome back, {this_user.Username}!", "success")
@@ -957,7 +982,7 @@ def register_routes(app):
 
     # ---------------- INTELLIGENT INVOICE UPLOAD ----------------
     @app.route('/admin/invoice_upload', methods=['GET', 'POST'])
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload():
         from flask import current_app
         from vim.extraction import config as extraction_config
@@ -1037,7 +1062,7 @@ def register_routes(app):
         )
 
     @app.route('/admin/invoice_upload/progress/<job_id>', methods=['GET'])
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload_progress(job_id):
         """Progress page for a background upload job; polls the status endpoint."""
         from vim.extraction import jobs
@@ -1109,7 +1134,7 @@ def register_routes(app):
         )
 
     @app.route('/admin/invoice_upload/status/<job_id>', methods=['GET'])
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload_status(job_id):
         """JSON status polled by the progress page."""
         from flask import jsonify
@@ -1278,7 +1303,7 @@ def register_routes(app):
 
     # ---------------- IMAGE PREVIEW OF A QUEUED DOCUMENT ----------------
     @app.route('/admin/invoice_upload/pending_image')
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload_pending_image():
         from vim.extraction.service import resolve_pending_upload
 
@@ -1306,7 +1331,7 @@ def register_routes(app):
 
     # ---------------- FULL TEXT OF A QUEUED DOCUMENT ----------------
     @app.route('/admin/invoice_upload/pending_text')
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload_pending_text():
         stored_name = request.args.get('stored_file_name')
 
@@ -1335,7 +1360,7 @@ def register_routes(app):
 
     # ---------------- NOT-AN-INVOICE DECISION ----------------
     @app.route('/admin/invoice_upload/decide', methods=['POST'])
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload_decide():
         from vim.extraction.service import (
             discard_pending_upload,
@@ -1395,7 +1420,7 @@ def register_routes(app):
         return redirect(url_for('admin_invoice_upload'))
 
     @app.route('/admin/invoice_upload/vendor_decide', methods=['POST'])
-    @admin_required
+    @permission_required(Permission.INVOICE_UPLOAD)
     def admin_invoice_upload_vendor_decide():
         from vim.extraction.service import (
             discard_pending_upload,

@@ -1,0 +1,213 @@
+{% extends 'admin_base.html' %}
+{% block title %}Vendor Portal · Cognira VIM{% endblock %}
+
+{% block extra_head %}
+<style>
+  .vendor-hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: 16px;
+    padding: 36px 40px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    border: 1px solid #334155;
+  }
+  .vendor-avatar {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; flex-shrink: 0;
+  }
+  .vendor-hero h2 { color: #f1f5f9; margin: 0 0 4px; font-size: 1.5rem; }
+  .vendor-hero p  { color: #94a3b8; margin: 0; font-size: 0.95rem; }
+  .vendor-badge {
+    margin-left: auto;
+    background: #1e3a5f;
+    border: 1px solid #2563eb;
+    color: #93c5fd;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .stat-card .stat-val {
+    font-size: 2rem; font-weight: 700; color: #f1f5f9;
+    line-height: 1;
+  }
+  .stat-card .stat-lbl {
+    font-size: 0.78rem; color: #64748b; margin-top: 6px; text-transform: uppercase; letter-spacing: .05em;
+  }
+  .stat-card.accent-blue  { border-color: #3b82f6; }
+  .stat-card.accent-green { border-color: #10b981; }
+  .stat-card.accent-amber { border-color: #f59e0b; }
+  .stat-card.accent-red   { border-color: #ef4444; }
+
+  .action-row {
+    display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap;
+  }
+  .action-btn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.9rem; font-weight: 600;
+    text-decoration: none;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .action-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+  .action-btn.primary { background: #6366f1; color: #fff; }
+  .action-btn.secondary { background: #1e293b; color: #94a3b8; border: 1px solid #334155; }
+
+  .invoice-table { width: 100%; border-collapse: collapse; }
+  .invoice-table th {
+    text-align: left; font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: .06em; color: #64748b;
+    padding: 10px 14px; border-bottom: 1px solid #1e293b;
+  }
+  .invoice-table td {
+    padding: 12px 14px; border-bottom: 1px solid #1e293b;
+    color: #cbd5e1; font-size: 0.9rem;
+  }
+  .invoice-table tr:last-child td { border-bottom: none; }
+  .invoice-table tr:hover td { background: #1e293b33; }
+
+  .badge-status {
+    display: inline-block;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-status.pending  { background:#1e3a5f; color:#93c5fd; }
+  .badge-status.approved { background:#064e3b; color:#6ee7b7; }
+  .badge-status.rejected { background:#450a0a; color:#fca5a5; }
+  .badge-status.other    { background:#292524; color:#d6d3d1; }
+
+  .empty-state {
+    text-align: center; padding: 48px 24px; color: #475569;
+  }
+  .empty-state svg { width: 48px; height: 48px; margin-bottom: 16px; opacity: .4; }
+  .empty-state p { margin: 4px 0 16px; font-size: 0.95rem; }
+</style>
+{% endblock %}
+
+{% block page_heading %}Vendor Portal{% endblock %}
+{% block page_sub %}Welcome, {{ session.get('username', 'Vendor') }} · manage and track your invoices{% endblock %}
+
+{% block content %}
+
+<!-- Hero banner -->
+<div class="vendor-hero">
+  <div class="vendor-avatar">🏢</div>
+  <div>
+    <h2>{{ vendor.VendorName if vendor else 'Your Company' }}</h2>
+    <p>GST: {{ vendor.GSTNumber if vendor else '—' }} &nbsp;·&nbsp; {{ vendor.Email if vendor else '' }}</p>
+  </div>
+  <span class="vendor-badge">✦ Vendor Portal</span>
+</div>
+
+<!-- Stats row -->
+<div class="stat-grid">
+  <div class="stat-card accent-blue">
+    <div class="stat-val">{{ total_count }}</div>
+    <div class="stat-lbl">Total Invoices</div>
+  </div>
+  <div class="stat-card accent-amber">
+    <div class="stat-val">{{ pending_count }}</div>
+    <div class="stat-lbl">Pending Approval</div>
+  </div>
+  <div class="stat-card accent-green">
+    <div class="stat-val">{{ approved_count }}</div>
+    <div class="stat-lbl">Approved</div>
+  </div>
+  <div class="stat-card accent-red">
+    <div class="stat-val">{{ rejected_count }}</div>
+    <div class="stat-lbl">Rejected</div>
+  </div>
+</div>
+
+<!-- Quick actions -->
+<div class="action-row">
+  <a href="{{ url_for('admin_invoice_upload') }}" class="action-btn primary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
+    Upload New Invoice
+  </a>
+  <a href="{{ url_for('logout') }}" class="action-btn secondary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    Sign Out
+  </a>
+</div>
+
+<!-- Recent invoices table -->
+<div class="card" style="background:#0f172a; border:1px solid #1e293b; border-radius:14px; overflow:hidden;">
+  <div style="padding: 18px 20px 12px; border-bottom: 1px solid #1e293b; display:flex; align-items:center; justify-content:space-between;">
+    <h3 style="margin:0; font-size:1rem; color:#e2e8f0;">Your Invoices</h3>
+    <span style="font-size:0.8rem; color:#475569;">Showing {{ invoices|length }} record(s)</span>
+  </div>
+
+  {% if invoices %}
+  <table class="invoice-table">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Date</th>
+        <th>PO Number</th>
+        <th>Amount</th>
+        <th>Due Date</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for inv in invoices %}
+      <tr>
+        <td><strong style="color:#f1f5f9;">{{ inv.InvoiceNumber or '—' }}</strong></td>
+        <td>{{ inv.InvoiceDate.strftime('%d %b %Y') if inv.InvoiceDate else '—' }}</td>
+        <td>{{ inv.PONumber or '—' }}</td>
+        <td>
+          <strong>{{ inv.InvoiceAmount | round(2) }}</strong>
+          <span style="color:#64748b; font-size:0.8rem;">{{ inv.Currency }}</span>
+        </td>
+        <td>{{ inv.DueDate.strftime('%d %b %Y') if inv.DueDate else '—' }}</td>
+        <td>
+          {% set s = inv.InvoiceStatus | lower %}
+          {% if 'approved' in s %}
+            <span class="badge-status approved">{{ inv.InvoiceStatus }}</span>
+          {% elif 'reject' in s %}
+            <span class="badge-status rejected">{{ inv.InvoiceStatus }}</span>
+          {% elif 'pending' in s %}
+            <span class="badge-status pending">{{ inv.InvoiceStatus }}</span>
+          {% else %}
+            <span class="badge-status other">{{ inv.InvoiceStatus }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <path d="M7 3h8l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+      <polyline points="14 3 14 8 19 8"/>
+    </svg>
+    <p>No invoices found for your vendor account.</p>
+    <a href="{{ url_for('admin_invoice_upload') }}" class="action-btn primary" style="display:inline-flex;">
+      Upload your first invoice
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
