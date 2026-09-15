@@ -7,70 +7,76 @@
     <div class="card" style="text-align:left;">
         <h3>Rejected / held documents</h3>
         <p style="color:#666;">
-            Uploads that were not saved as invoices: the AI did not recognise
-            them as invoices, the vendor name could not be read, or the
-            vendor is not registered. Stopping a pending decision still
-            keeps the row here.
+            Uploads that were not saved as invoices, in three categories.
+            Empty or unrelated files are closed automatically. Other
+            non-invoices and missing-vendor cases stay here for review.
         </p>
 
-        {% if rows %}
-        <div style="overflow-x:auto;">
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>When</th>
-                        <th>File</th>
-                        <th>Reason</th>
-                        <th>Vendor / type</th>
-                        <th>Invoice</th>
-                        <th>Decision</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in rows %}
-                    <tr>
-                        <td>{{ row.CreatedDate.strftime('%Y-%m-%d %H:%M') if row.CreatedDate else '—' }}</td>
-                        <td>{{ row.FileName }}</td>
-                        <td>
-                            {% if row.Reason == 'not_invoice' %}
-                                Not an invoice
-                            {% elif row.Reason == 'vendor_not_registered' %}
-                                Unknown vendor
-                            {% elif row.Reason == 'incomplete_header' %}
-                                Missing vendor name
-                            {% else %}
-                                {{ row.Reason }}
-                            {% endif %}
-                        </td>
-                        <td>{{ row.VendorName or row.DocumentType or '—' }}</td>
-                        <td>
-                            {{ row.InvoiceNumber or '—' }}
-                            {% if row.InvoiceAmount is not none %}
-                                · {{ row.InvoiceAmount }} {{ row.Currency or '' }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if row.Decision == 'pending' %}
-                                <span style="color:#e0a800;">Pending</span>
-                            {% elif row.Decision == 'proceeded' %}
-                                <span style="color:green;">Proceeded</span>
-                            {% elif row.Decision == 'stopped' %}
-                                <span style="color:#666;">Stopped</span>
-                            {% else %}
-                                {{ row.Decision }}
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ url_for('admin_rejected_document_detail', rejection_id=row.RejectionID) }}">
-                                View
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        {% if total %}
+            {% for key in category_order %}
+            {% set rows = groups[key] %}
+            <section style="margin:28px 0 8px;">
+                <h4 style="margin-bottom:4px;">
+                    {{ category_labels[key] }}
+                    <span style="color:#888; font-weight:normal;">({{ rows|length }})</span>
+                </h4>
+                <p style="color:#666; margin:0 0 12px;">{{ category_hints[key] }}</p>
+
+                {% if rows %}
+                <div style="overflow-x:auto;">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>When</th>
+                                <th>File</th>
+                                <th>Reason</th>
+                                <th>Vendor / type</th>
+                                <th>Invoice</th>
+                                <th>Decision</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                            <tr>
+                                <td>{{ row.CreatedDate.strftime('%Y-%m-%d %H:%M') if row.CreatedDate else '—' }}</td>
+                                <td>{{ row.FileName }}</td>
+                                <td>{{ reason_label(row.Reason) }}</td>
+                                <td>{{ row.VendorName or row.DocumentType or '—' }}</td>
+                                <td>
+                                    {{ row.InvoiceNumber or '—' }}
+                                    {% if row.InvoiceAmount is not none %}
+                                        · {{ row.InvoiceAmount }} {{ row.Currency or '' }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if row.Decision == 'pending' %}
+                                        <span style="color:#e0a800;">{{ decision_label(row.Decision) }}</span>
+                                    {% elif row.Decision == 'proceeded' %}
+                                        <span style="color:green;">{{ decision_label(row.Decision) }}</span>
+                                    {% elif row.Decision == 'stopped' %}
+                                        <span style="color:#666;">{{ decision_label(row.Decision) }}</span>
+                                    {% elif row.Decision == 'auto_rejected' %}
+                                        <span style="color:#666;">{{ decision_label(row.Decision) }}</span>
+                                    {% else %}
+                                        {{ decision_label(row.Decision) }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin_rejected_document_detail', rejection_id=row.RejectionID) }}">
+                                        View
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p style="color:#888; margin:0;">None in this category.</p>
+                {% endif %}
+            </section>
+            {% endfor %}
         {% else %}
         <p>No rejected documents yet.</p>
         {% endif %}

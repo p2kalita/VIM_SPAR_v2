@@ -1,7 +1,6 @@
-"""Persist rejected uploads (not-an-invoice, unknown vendor, incomplete header) for later review."""
+"""Persist rejected uploads for later review or automatic close-out."""
 
 import json
-from datetime import datetime
 from vim.timezone import get_ist_now
 
 from vim_database.database import db, write_lock
@@ -13,10 +12,44 @@ logger = get_logger("vim.extraction.rejections")
 REASON_NOT_INVOICE = "not_invoice"
 REASON_NEW_VENDOR = "vendor_not_registered"
 REASON_INCOMPLETE_HEADER = "incomplete_header"
+REASON_EMPTY = "empty"
+REASON_IRRELEVANT = "irrelevant"
 
 DECISION_PENDING = "pending"
 DECISION_PROCEEDED = "proceeded"
 DECISION_STOPPED = "stopped"
+DECISION_AUTO_REJECTED = "auto_rejected"
+
+CATEGORY_AUTO = "auto"
+CATEGORY_NOT_INVOICE = "not_invoice"
+CATEGORY_NEEDS_REVIEW = "needs_review"
+
+CATEGORY_LABELS = {
+    CATEGORY_AUTO: "Empty / irrelevant",
+    CATEGORY_NOT_INVOICE: "Not an invoice",
+    CATEGORY_NEEDS_REVIEW: "Needs a person",
+}
+
+CATEGORY_HINTS = {
+    CATEGORY_AUTO: "Blank or unrelated files. Rejected automatically — no review queue.",
+    CATEGORY_NOT_INVOICE: "Business documents that are not vendor invoices (PO, quote, bill of supply, receipt).",
+    CATEGORY_NEEDS_REVIEW: "Looks like an invoice but the vendor is missing or not registered.",
+}
+
+REASON_LABELS = {
+    REASON_EMPTY: "Empty document",
+    REASON_IRRELEVANT: "Irrelevant to invoices",
+    REASON_NOT_INVOICE: "Not an invoice",
+    REASON_NEW_VENDOR: "Unknown vendor",
+    REASON_INCOMPLETE_HEADER: "Missing vendor name",
+}
+
+DECISION_LABELS = {
+    DECISION_PENDING: "Pending",
+    DECISION_PROCEEDED: "Proceeded",
+    DECISION_STOPPED: "Stopped",
+    DECISION_AUTO_REJECTED: "Rejected automatically",
+}
 
 _PREVIEW_CHARS = 20000
 
@@ -34,7 +67,25 @@ def _slim(record: dict) -> dict:
     return json.loads(json.dumps(payload, default=str))
 
 
-def record_rejection(record: dict, *, reason: str) -> RejectedDocument:
+def categorize_rejection(row) -> str:
+    reason = (getattr(row, "Reason", None) or "").strip()
+    decision = (getattr(row, "Decision", None) or "").strip()
+    if reason in (REASON_EMPTY, REASON_IRRELEVANT) or decision == DECISION_AUTO_REJECTED:
+        return CATEGORY_AUTO
+    if reason in (REASON_NEW_VENDOR, REASON_INCOMPLETE_HEADER):
+        return CATEGORY_NEEDS_REVIEW
+    return CATEGORY_NOT_INVOICE
+
+
+def reason_label(reason: str) -> str:
+    return REASON_LABELS.get(reason, reason or "—")
+
+
+def decision_label(decision: str) -> str:
+    return DECISION_LABELS.get(decision, decision or "—")
+
+
+def record_rejection(record: dict, *, reason: str, decision: str | None = None) -> RejectedDocument:
     """
     Insert or update a rejected_document row for this upload.
 
@@ -50,14 +101,19 @@ def record_rejection(record: dict, *, reason: str) -> RejectedDocument:
             row = RejectedDocument(
                 StoredFileName=stored,
                 FileName=record.get("file_name") or stored,
-                Decision=DECISION_PENDING,
+                Decision=decision or DECISION_PENDING,
             )
             db.session.add(row)
         else:
             logger.debug("[REJECT] Updating existing RejectedDocument row for '%s'", stored)
 
         row.Reason = reason
-        if row.Decision != DECISION_STOPPED:
+        chosen = decision or DECISION_PENDING
+        if chosen == DECISION_AUTO_REJECTED:
+            row.Decision = DECISION_AUTO_REJECTED
+            row.DecidedDate = get_ist_now()
+            row.DecidedByUserID = None
+        elif row.Decision not in (DECISION_STOPPED, DECISION_AUTO_REJECTED):
             row.Decision = DECISION_PENDING
             row.DecidedDate = None
             row.DecidedByUserID = None

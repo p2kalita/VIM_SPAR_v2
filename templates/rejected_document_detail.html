@@ -9,14 +9,9 @@
         <table class="table table-sm">
             <tbody>
                 <tr><th style="width:220px;">Reason</th>
-                    <td>
-                        {% if row.Reason == 'not_invoice' %}Not an invoice
-                        {% elif row.Reason == 'vendor_not_registered' %}Unknown vendor
-                        {% elif row.Reason == 'incomplete_header' %}Missing vendor name
-                        {% else %}{{ row.Reason }}{% endif %}
-                    </td>
+                    <td>{{ reason_label(row.Reason) }}</td>
                 </tr>
-                <tr><th>Decision</th><td>{{ row.Decision }}</td></tr>
+                <tr><th>Decision</th><td>{{ decision_label(row.Decision) }}</td></tr>
                 <tr><th>Received</th>
                     <td>{{ row.CreatedDate.strftime('%Y-%m-%d %H:%M:%S') if row.CreatedDate else '—' }}</td>
                 </tr>

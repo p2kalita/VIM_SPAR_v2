@@ -241,6 +241,8 @@ def get_dashboard_metrics(view="all", vendor_id=None, approver=None):
 
     held_rows = []
     if view == "held":
+        from vim.extraction.rejections import decision_label, reason_label
+
         held_docs = (
             RejectedDocument.query
             .order_by(RejectedDocument.CreatedDate.desc())
@@ -251,10 +253,10 @@ def get_dashboard_metrics(view="all", vendor_id=None, approver=None):
             {
                 "rejection_id": row.RejectionID,
                 "file_name": row.FileName or row.StoredFileName or "Document",
-                "reason": row.Reason or "—",
+                "reason": reason_label(row.Reason),
                 "vendor": row.VendorName or "—",
                 "invoice_number": row.InvoiceNumber or "—",
-                "decision": row.Decision or "pending",
+                "decision": decision_label(row.Decision or "pending"),
                 "amount": _decimal_to_float(row.InvoiceAmount),
                 "currency": row.Currency or "",
             }

@@ -49,6 +49,8 @@
                                 <span style="color:red;">Failed</span>
                             {% elif row.status == 'Held' %}
                                 <span style="color:#e0a800;">Held</span>
+                            {% elif row.status == 'AutoRejected' %}
+                                <span style="color:#666;">Rejected automatically</span>
                             {% else %}
                                 <span style="color:orange;">Needs Review</span>
                             {% endif %}

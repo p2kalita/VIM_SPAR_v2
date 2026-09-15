@@ -1197,11 +1197,24 @@ def register_routes(app):
             )
 
     def _flash_not_invoices(records):
-        """Non-invoices are stored in Rejected Documents; no proceed prompt."""
+        """Empty/irrelevant files are auto-rejected; other non-invoices stay for review."""
+        auto = [
+            r for r in records
+            if r.get("status") in ("empty", "irrelevant") or r.get("_auto_rejected")
+        ]
         held = [
             r for r in records
-            if r.get("status") == "not_invoice"
+            if r.get("status") == "not_invoice" and r not in auto
         ]
+        if auto:
+            names = ", ".join(
+                (r.get("file_name") or "document") for r in auto
+            )
+            flash(
+                f"{len(auto)} file(s) were empty or unrelated to invoices ({names}). "
+                "They were rejected automatically and do not need review.",
+                "info",
+            )
         if not held:
             return
         names = ", ".join(
@@ -1604,6 +1617,8 @@ def register_routes(app):
     def _extraction_row_status(record):
         if record.get("_extraction_error"):
             return "Failed"
+        if record.get("status") in ("empty", "irrelevant") or record.get("_auto_rejected"):
+            return "AutoRejected"
         if record.get("status") in (
             "incomplete_header",
             "not_invoice",
@@ -1682,17 +1697,45 @@ def register_routes(app):
     @app.route('/admin/rejected_documents', methods=['GET'])
     @admin_required
     def admin_rejected_documents():
+        from vim.extraction.rejections import (
+            CATEGORY_AUTO,
+            CATEGORY_LABELS,
+            CATEGORY_HINTS,
+            CATEGORY_NEEDS_REVIEW,
+            CATEGORY_NOT_INVOICE,
+            categorize_rejection,
+            decision_label,
+            reason_label,
+        )
+
         rows = (
             RejectedDocument.query
             .order_by(RejectedDocument.CreatedDate.desc())
             .all()
         )
-        return render_template('rejected_documents.html', rows=rows)
+        groups = {
+            CATEGORY_AUTO: [],
+            CATEGORY_NOT_INVOICE: [],
+            CATEGORY_NEEDS_REVIEW: [],
+        }
+        for row in rows:
+            groups[categorize_rejection(row)].append(row)
+        return render_template(
+            'rejected_documents.html',
+            groups=groups,
+            category_order=[CATEGORY_AUTO, CATEGORY_NOT_INVOICE, CATEGORY_NEEDS_REVIEW],
+            category_labels=CATEGORY_LABELS,
+            category_hints=CATEGORY_HINTS,
+            reason_label=reason_label,
+            decision_label=decision_label,
+            total=len(rows),
+        )
 
     @app.route('/admin/rejected_documents/<int:rejection_id>', methods=['GET'])
     @admin_required
     def admin_rejected_document_detail(rejection_id):
         import json
+        from vim.extraction.rejections import decision_label, reason_label
 
         row = db.session.get(RejectedDocument, rejection_id)
         if row is None:
@@ -1705,6 +1748,8 @@ def register_routes(app):
             row=row,
             payload=payload,
             payload_json=json.dumps(payload, indent=2, default=str),
+            reason_label=reason_label,
+            decision_label=decision_label,
         )
 
 
