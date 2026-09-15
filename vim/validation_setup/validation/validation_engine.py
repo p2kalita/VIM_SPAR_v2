@@ -4,7 +4,8 @@ from .stages import (
     VendorValidation,
     POMatching,
     TaxValidation,
-    DuplicateDetection
+    DuplicateDetection,
+    InvoiceAgeValidation
 )
 from vim_logger import get_logger
 
@@ -21,7 +22,8 @@ class ValidationEngine:
             VendorValidation(),
             POMatching(),
             TaxValidation(),
-            DuplicateDetection()
+            DuplicateDetection(),
+            InvoiceAgeValidation()
         ]
 
     def validate_invoice(self, invoice, context=None):
