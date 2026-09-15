@@ -588,3 +588,119 @@ class DuplicateDetection(BaseStage):
                 "lookback_days": 30
             }
         }
+class InvoiceAgeValidation(BaseStage):
+    """
+    Intelligent business validation that checks whether
+    the invoice date is significantly old.
+
+    An invoice older than MAX_INVOICE_AGE_DAYS will be
+    flagged as an exception.
+    """
+
+    MAX_INVOICE_AGE_DAYS = 90
+
+    def __init__(self):
+        super().__init__("Invoice Age Validation")
+
+    def validate(self, invoice, context=None):
+        invoice_date_value = invoice.get("invoice_date")
+
+        # Invoice date is missing
+        if not invoice_date_value:
+            logger.debug("[STAGE-INVOICE-AGE] Invoice date is missing")
+
+            return {
+                "stage": self.name,
+                "status": "FAILED",
+                "message": "Invoice date is missing, so invoice age cannot be validated",
+                "details": {}
+            }
+
+        # Try to convert the invoice date to a date object
+        try:
+            if isinstance(invoice_date_value, datetime):
+                invoice_date = invoice_date_value.date()
+            else:
+                invoice_date = datetime.fromisoformat(
+                    str(invoice_date_value).replace("Z", "")
+                ).date()
+
+        except (ValueError, TypeError):
+            logger.debug(
+                "[STAGE-INVOICE-AGE] Invalid invoice date: %s",
+                invoice_date_value
+            )
+
+            return {
+                "stage": self.name,
+                "status": "FAILED",
+                "message": "Invoice date is not in a valid date format",
+                "details": {
+                    "invoice_date": str(invoice_date_value)
+                }
+            }
+
+        # Get today's date from the existing project timezone helper
+        current_date = get_ist_now().date()
+
+        # Calculate invoice age
+        invoice_age_days = (current_date - invoice_date).days
+
+        # Future-dated invoice
+        if invoice_age_days < 0:
+            logger.warning(
+                "[STAGE-INVOICE-AGE] Future invoice date detected: %s",
+                invoice_date
+            )
+
+            return {
+                "stage": self.name,
+                "status": "FAILED",
+                "message": "Invoice date is in the future",
+                "details": {
+                    "invoice_date": str(invoice_date),
+                    "current_date": str(current_date),
+                    "invoice_age_days": invoice_age_days
+                }
+            }
+
+        # Invoice is too old
+        if invoice_age_days > self.MAX_INVOICE_AGE_DAYS:
+            logger.warning(
+                "[STAGE-INVOICE-AGE] Old invoice detected: %d days old",
+                invoice_age_days
+            )
+
+            return {
+                "stage": self.name,
+                "status": "FAILED",
+                "message": (
+                    "Invoice is significantly older than the allowed "
+                    "invoice age"
+                ),
+                "details": {
+                    "invoice_date": str(invoice_date),
+                    "current_date": str(current_date),
+                    "invoice_age_days": invoice_age_days,
+                    "maximum_allowed_age_days": self.MAX_INVOICE_AGE_DAYS,
+                    "exception": True
+                }
+            }
+
+        # Invoice is within allowed age
+        logger.debug(
+            "[STAGE-INVOICE-AGE] Invoice age validation passed: %d days",
+            invoice_age_days
+        )
+
+        return {
+            "stage": self.name,
+            "status": "PASSED",
+            "message": "Invoice date is within the allowed age",
+            "details": {
+                "invoice_date": str(invoice_date),
+                "current_date": str(current_date),
+                "invoice_age_days": invoice_age_days,
+                "maximum_allowed_age_days": self.MAX_INVOICE_AGE_DAYS
+            }
+        }
