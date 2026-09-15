@@ -152,6 +152,10 @@
                             <span style="color:green;">Extracted</span>
                         {% elif r.status == 'vendor_not_registered' %}
                             <span style="color:#0d6efd;">New vendor — register or stop</span>
+                        {% elif r.status == 'empty' %}
+                            <span style="color:#666;">Empty — rejected automatically</span>
+                        {% elif r.status == 'irrelevant' %}
+                            <span style="color:#666;">Irrelevant — rejected automatically</span>
                         {% elif r.status == 'not_invoice' %}
                             <span style="color:#e0a800;">Not an invoice — sent to Rejected Documents</span>
                         {% elif r.status == 'incomplete_header' %}

@@ -40,8 +40,18 @@ _RESPONSE_SCHEMA = {
         "document_type": {"type": "string"},
         "confidence": {"type": "integer"},
         "reason": {"type": "string"},
+        "rejection_class": {
+            "type": "string",
+            "enum": ["invoice", "empty", "irrelevant", "not_invoice"],
+        },
     },
-    "required": ["is_invoice", "document_type", "confidence", "reason"],
+    "required": [
+        "is_invoice",
+        "document_type",
+        "confidence",
+        "reason",
+        "rejection_class",
+    ],
 }
 
 _CRITERIA = """
@@ -82,9 +92,24 @@ Rules:
 - If the document is titled PURCHASE ORDER, or it has a PO number but no
   invoice number and no invoice date, it is not an invoice.
 - "document_type" is a short human-readable label, e.g. "Tax Invoice",
-  "Bill of Supply", "Purchase Order", "Prescription", or "Retail receipt".
+  "Bill of Supply", "Purchase Order", "Prescription", "Retail receipt",
+  "Empty", or "Irrelevant".
 - "confidence" is an integer from 0 to 100.
 - "reason" is one short sentence explaining the decision.
+- "rejection_class" must be one of:
+  - "invoice" — a vendor invoice, tax invoice, debit memo, credit memo,
+    or utility/telecom statement for AP
+  - "empty" — blank page, unreadable scan, or no meaningful text or pixels
+  - "irrelevant" — completely unrelated to invoices or billing (resume,
+    holiday photo, logo, screenshot, meme, random notes)
+  - "not_invoice" — a real business document that is still not a vendor
+    invoice (purchase order, quote, bill of supply, prescription, receipt)
+
+If the page is blank or has no readable content, set is_invoice to false
+and rejection_class to "empty".
+If the file has nothing to do with paying a vendor, set is_invoice to false
+and rejection_class to "irrelevant". Do not ask a human to review those.
+Purchase orders, quotes, and bills of supply are "not_invoice", not "irrelevant".
 """.strip()
 
 _TEXT_PROMPT = (
@@ -138,6 +163,7 @@ def _blank_verdict() -> dict:
         "document_type": None,
         "confidence": None,
         "reason": None,
+        "rejection_class": None,
         "error": None,
         "model": config.GEMINI_MODEL,
     }
@@ -228,12 +254,92 @@ def _ask_gemini(contents) -> dict:
         "document_type": (payload.get("document_type") or "").strip() or None,
         "confidence": confidence if isinstance(confidence, (int, float)) else None,
         "reason": (payload.get("reason") or "").strip() or None,
+        "rejection_class": _normalise_rejection_class(
+            payload.get("rejection_class"), is_invoice
+        ),
         "error": None,
         "model": config.GEMINI_MODEL,
     }
     logger.info("[CLASSIFY] Verdict: is_invoice=%s, doc_type='%s', conf=%s, reason='%s'",
                 is_invoice, verdict["document_type"], verdict["confidence"], verdict["reason"])
     return verdict
+
+
+_EMPTY_TEXT_LETTERS = 30
+_EMPTY_HINTS = re.compile(
+    r"\b(empty|blank|unreadable|no content|white page|blank page)\b", re.I
+)
+_IRRELEVANT_HINTS = re.compile(
+    r"\b(irrelevant|unrelated|resume|\bcv\b|photograph|holiday photo|"
+    r"screenshot|selfie|logo|meme|artwork|wallpaper|random notes)\b",
+    re.I,
+)
+_BUSINESS_NON_INVOICE = re.compile(
+    r"purchase order|\bpo\b|quote|quotation|sales order|bill of supply|"
+    r"prescription|\brx\b|receipt|credit card slip",
+    re.I,
+)
+
+
+def _normalise_rejection_class(value, is_invoice: bool) -> str | None:
+    raw = str(value or "").strip().lower()
+    if is_invoice:
+        return "invoice"
+    if raw in ("empty", "irrelevant", "not_invoice"):
+        return raw
+    return None
+
+
+def is_empty_text(raw_text: str | None) -> bool:
+    letters = re.findall(r"[A-Za-z0-9]", raw_text or "")
+    return len(letters) < _EMPTY_TEXT_LETTERS
+
+
+def is_blank_image(file_path) -> bool:
+    """True when an image is a near-uniform blank page."""
+    try:
+        from PIL import Image, ImageStat
+        path = Path(file_path)
+        if not path.is_file() or path.stat().st_size == 0:
+            return True
+        with Image.open(path) as img:
+            gray = img.convert("L")
+            gray.thumbnail((200, 200))
+            stats = ImageStat.Stat(gray)
+            mean = stats.mean[0]
+            stddev = stats.stddev[0]
+        return stddev < 8 and (mean > 245 or mean < 12)
+    except Exception as e:
+        logger.warning("[CLASSIFY] Could not test blank image '%s': %s", file_path, e)
+        return False
+
+
+def auto_reject_reason(verdict: dict | None = None, *, raw_text: str | None = None) -> str | None:
+    """
+    Return 'empty' or 'irrelevant' when no human review is needed.
+
+    Business documents that are not invoices (PO, quote, bill of supply)
+    return None so they stay in the review queue.
+    """
+    if raw_text is not None and is_empty_text(raw_text):
+        return "empty"
+
+    verdict = verdict or {}
+    cls = str(verdict.get("rejection_class") or "").strip().lower()
+    if cls in ("empty", "irrelevant"):
+        return cls
+
+    blob = " ".join(
+        str(verdict.get(key) or "")
+        for key in ("document_type", "reason")
+    )
+    if _BUSINESS_NON_INVOICE.search(blob):
+        return None
+    if _EMPTY_HINTS.search(blob):
+        return "empty"
+    if _IRRELEVANT_HINTS.search(blob):
+        return "irrelevant"
+    return None
 
 
 def classify_document(raw_text: str, file_name: str = "") -> dict:

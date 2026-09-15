@@ -50,11 +50,21 @@ const colours = {
     success: "green",
     needs_review: "#e0a800",
     not_invoice: "#e0a800",
+    empty: "#666",
+    irrelevant: "#666",
     error: "red",
     extraction_failed: "red",
     db_error: "red",
     vendor_not_registered: "#0d6efd",
     incomplete_header: "#e0a800",
+};
+
+const statusLabels = {
+    empty: "empty — rejected automatically",
+    irrelevant: "irrelevant — rejected automatically",
+    not_invoice: "not an invoice",
+    vendor_not_registered: "new vendor — register or stop",
+    incomplete_header: "held — missing vendor name",
 };
 
 function formatSeconds(value) {
@@ -90,7 +100,8 @@ function paint(data) {
         if (!li) return;
         const status = li.querySelector(".status");
         const elapsed = li.querySelector(".elapsed");
-        status.textContent = file.status + (file.detail ? " — " + file.detail : "");
+        const label = statusLabels[file.status] || file.status;
+        status.textContent = label + (file.detail ? " — " + file.detail : "");
         status.style.color = colours[file.status] || "#333";
         if (file.elapsed_seconds != null) {
             elapsed.textContent = formatSeconds(file.elapsed_seconds);

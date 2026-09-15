@@ -8,8 +8,11 @@ from werkzeug.utils import secure_filename
 
 from vim.extraction import config
 from vim.extraction.classifier import (
+    auto_reject_reason,
     classify_document,
     classify_image,
+    is_blank_image,
+    is_empty_text,
     non_invoice_hold_reason,
 )
 from vim.extraction.enrich import extract_from_file, load_document_text
@@ -105,19 +108,48 @@ def discard_pending_upload(
     return True
  
  
-def _hold_as_rejected(record: dict, reason: str) -> dict:
+def _hold_as_rejected(record: dict, reason: str, *, decision: str | None = None) -> dict:
     """Write enriched.json and a rejected_document row, then return the record."""
     from vim.extraction.json_store import upsert_record
     from vim.extraction.rejections import record_rejection
- 
+
     logger.info("[REJECT] '%s' held as '%s'", record.get("file_name"), reason)
     upsert_record(record)
     try:
-        record_rejection(record, reason=reason)
+        record_rejection(record, reason=reason, decision=decision)
     except Exception as e:
         logger.error("[REJECT] Could not write rejected_document row for '%s': %s",
                      record.get("file_name"), e, exc_info=True)
     return record
+
+
+def _auto_reject_result(
+    *,
+    original_name: str,
+    saved_path: Path,
+    reason: str,
+    detail: str,
+    raw_text: str = "",
+    verdict: dict | None = None,
+) -> dict:
+    """Close out empty or irrelevant uploads with no human queue."""
+    from vim.extraction.rejections import DECISION_AUTO_REJECTED
+
+    record = empty_record()
+    record["file_name"] = original_name
+    record["stored_file_name"] = saved_path.name if saved_path else record.get("stored_file_name")
+    record["file_path"] = str(saved_path) if saved_path else record.get("file_path")
+    record["raw_text"] = raw_text or ""
+    record["status"] = reason
+    record["_auto_rejected"] = True
+    record["_classification"] = verdict or {}
+    record["_not_invoice_reason"] = detail
+    record["_document_type"] = (
+        (verdict or {}).get("document_type")
+        or ("Empty" if reason == "empty" else "Irrelevant")
+    )
+    logger.info("[REJECT] Auto-rejected '%s' as %s — %s", original_name, reason, detail)
+    return _hold_as_rejected(record, reason, decision=DECISION_AUTO_REJECTED)
  
  
 def _resolve_status(record: dict) -> str:
@@ -132,6 +164,8 @@ def _resolve_status(record: dict) -> str:
         return "not_invoice"
     if record.get("status") == "incomplete_header":
         return "incomplete_header"
+    if record.get("status") in ("empty", "irrelevant"):
+        return record["status"]
     if record.get("_extraction_error"):
         return "extraction_failed"
     if record.get("_db_error") or record.get("status") == "db_error":
@@ -224,8 +258,8 @@ def process_uploaded_file(file_storage) -> dict:
     3. Only invoices are extracted and checked against registered vendors
     4. Save to output/enriched.json and the VIM database
  
-    A document the classifier rejects comes back with status "not_invoice"
-    and is left on disk so the user can choose to proceed or discard it.
+    Empty or irrelevant files are auto-rejected (no human queue). Other
+    non-invoices come back with status "not_invoice" for later review.
     Vendor matching is not run on those files.
     """
     saved_path, original_name = stage_upload(file_storage)
@@ -256,9 +290,24 @@ def process_saved_file(
     is_image = saved_path.suffix.lower() in config.IMAGE_EXTENSIONS
     raw_text = ""
 
+    if saved_path.is_file() and saved_path.stat().st_size == 0:
+        return _auto_reject_result(
+            original_name=original_name,
+            saved_path=saved_path,
+            reason="empty",
+            detail="The uploaded file is empty.",
+        )
+
     # 1. Gemini invoice gate — vendor matching runs only after this passes.
     if not skip_invoice_check:
         if is_image:
+            if is_blank_image(saved_path):
+                return _auto_reject_result(
+                    original_name=original_name,
+                    saved_path=saved_path,
+                    reason="empty",
+                    detail="The image is a blank page with no invoice content.",
+                )
             _log("classifying image")
             verdict = classify_image(saved_path, original_name)
         else:
@@ -274,6 +323,14 @@ def process_saved_file(
                 record["status"] = "extraction_failed"
                 upsert_record(record)
                 return record
+            if is_empty_text(raw_text):
+                return _auto_reject_result(
+                    original_name=original_name,
+                    saved_path=saved_path,
+                    reason="empty",
+                    detail="No readable invoice content was found in this file.",
+                    raw_text=raw_text or "",
+                )
             _log("classifying document")
             verdict = classify_document(raw_text, original_name)
 
@@ -283,6 +340,20 @@ def process_saved_file(
                 original_name, verdict["error"],
             )
         elif verdict.get("is_invoice") is False:
+            auto_reason = auto_reject_reason(verdict, raw_text=raw_text if not is_image else None)
+            if auto_reason:
+                return _auto_reject_result(
+                    original_name=original_name,
+                    saved_path=saved_path,
+                    reason=auto_reason,
+                    detail=verdict.get("reason") or (
+                        "No invoice content was found."
+                        if auto_reason == "empty"
+                        else "This file is not related to a vendor invoice."
+                    ),
+                    raw_text=raw_text,
+                    verdict=verdict,
+                )
             logger.info(
                 "[PIPELINE] '%s' is not an invoice (%s) — skipping vendor check",
                 original_name, verdict.get("document_type"),
@@ -394,6 +465,26 @@ def _hold_not_invoice_keep_extraction(
     vendor_approved: bool = False,
 ) -> dict:
     """Hold as not-an-invoice without wiping the extracted vendor snapshot."""
+    auto_reason = auto_reject_reason(verdict, raw_text=record.get("raw_text"))
+    if auto_reason:
+        from vim.extraction.rejections import DECISION_AUTO_REJECTED
+
+        record["file_name"] = original_name
+        record["stored_file_name"] = saved_path.name if saved_path else record.get("stored_file_name")
+        record["file_path"] = str(saved_path) if saved_path else record.get("file_path")
+        record["status"] = auto_reason
+        record["_auto_rejected"] = True
+        record["_classification"] = verdict
+        record["_not_invoice_reason"] = verdict.get("reason") or (
+            "No invoice content was found."
+            if auto_reason == "empty"
+            else "This file is not related to a vendor invoice."
+        )
+        record["_document_type"] = verdict.get("document_type")
+        record["_vendor_approved"] = vendor_approved
+        record.pop("_extraction_error", None)
+        return _hold_as_rejected(record, auto_reason, decision=DECISION_AUTO_REJECTED)
+
     record["file_name"] = original_name
     record["stored_file_name"] = saved_path.name if saved_path else record.get("stored_file_name")
     record["file_path"] = str(saved_path) if saved_path else record.get("file_path")
@@ -446,6 +537,22 @@ def persist_approved_vendor(
                 display_name, verdict["error"],
             )
         elif verdict.get("is_invoice") is False:
+            auto_reason = auto_reject_reason(verdict, raw_text=record.get("raw_text"))
+            if auto_reason:
+                from vim.extraction.rejections import DECISION_AUTO_REJECTED
+
+                record["status"] = auto_reason
+                record["_auto_rejected"] = True
+                record["_classification"] = verdict
+                record["_not_invoice_reason"] = verdict.get("reason")
+                record["_document_type"] = verdict.get("document_type")
+                logger.info(
+                    "[VENDOR-APPROVE] '%s' auto-rejected as %s",
+                    display_name, auto_reason,
+                )
+                return _hold_as_rejected(
+                    record, auto_reason, decision=DECISION_AUTO_REJECTED
+                )
             logger.info(
                 "[VENDOR-APPROVE] '%s' is not an invoice (%s) — holding for proceed/stop",
                 display_name, verdict.get("document_type"),
