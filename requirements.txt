@@ -12,6 +12,9 @@ crewai
 crewai-tools
 sentence-transformers
 google-generativeai
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
 langchain-google-genai
 tenacity
 pypdf

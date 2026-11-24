@@ -108,6 +108,12 @@ def create_app():
             logger.info("API keys loaded from %s", extraction_config.ENV_PATH)
         else:
             logger.warning("API keys MISSING — check %s", extraction_config.ENV_PATH)
+
+        polling = (os.getenv("GMAIL_POLLING") or "1").strip().lower()
+        if polling not in ("0", "false", "off"):
+            from vim.gmail.poller import start_poller
+
+            start_poller(app)
             
     return app
 

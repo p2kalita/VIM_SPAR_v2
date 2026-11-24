@@ -808,7 +808,127 @@ def register_routes(app):
             "vim_admin_settings.html",
             config=config
         )
-    
+
+    # ---------------- GMAIL INBOX INGEST ----------------
+    @app.route('/admin/gmail', methods=['GET', 'POST'])
+    @admin_required
+    def admin_gmail():
+        from vim.gmail import service as gmail
+
+        account = gmail.get_account()
+        if request.method == 'POST':
+            action = (request.form.get('action') or '').strip()
+            if action == 'save':
+                try:
+                    poll = int(request.form.get('poll_seconds') or gmail.default_poll_seconds())
+                except ValueError:
+                    poll = gmail.default_poll_seconds()
+                gmail.save_settings(
+                    search_query=request.form.get('search_query'),
+                    poll_seconds=poll,
+                )
+                flash("Gmail ingest settings saved.", "success")
+            elif action == 'pause':
+                gmail.set_enabled(False)
+                flash("Gmail ingest paused. New mail will not be processed until you resume.", "info")
+            elif action == 'resume':
+                gmail.set_enabled(True)
+                flash("Gmail ingest resumed. New invoice attachments will enter the extraction flow.", "success")
+            elif action == 'ignore_old':
+                gmail.ignore_mail_before_now()
+                flash("Older inbox mail will be ignored. Only messages you send from now on are processed.", "success")
+            elif action == 'disconnect':
+                gmail.disconnect_account()
+                flash("Gmail disconnected.", "success")
+            elif action == 'sync':
+                if not gmail.is_connected():
+                    flash("Connect Gmail first.", "warning")
+                else:
+                    from flask import current_app
+                    summary = gmail.sync_inbox(current_app._get_current_object())
+                    ingested = summary.get("ingested") or 0
+                    errors = summary.get("errors") or 0
+                    detail = summary.get("detail")
+                    if detail and ingested == 0 and errors == 0:
+                        flash(detail, "info")
+                    else:
+                        flash(
+                            f"Gmail sync checked {summary.get('checked', 0)} message(s): "
+                            f"{ingested} sent to extraction, "
+                            f"{summary.get('skipped', 0)} skipped, "
+                            f"{errors} error(s).",
+                            "success" if errors == 0 else "warning",
+                        )
+            return redirect(url_for('admin_gmail'))
+
+        last_error = (account.LastError if account else None) or ""
+        return render_template(
+            'vim_admin_gmail.html',
+            account=account,
+            oauth_ok=gmail.oauth_configured(),
+            redirect_uri=gmail.redirect_uri_from_request(),
+            default_query=gmail.default_search_query(),
+            messages=gmail.recent_messages(30),
+            gmail_api_url=gmail.gmail_api_enable_url(),
+            gmail_api_disabled="Gmail API is not enabled" in last_error
+            or "has not been used" in last_error,
+        )
+
+    @app.route('/admin/gmail/connect')
+    @admin_required
+    def admin_gmail_connect():
+        from vim.gmail import service as gmail
+
+        if not gmail.oauth_configured():
+            flash(
+                "Add GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET to .env, "
+                "then restart the server.",
+                "warning",
+            )
+            return redirect(url_for('admin_gmail'))
+        try:
+            redirect_uri = gmail.redirect_uri_from_request()
+            logger.info("[GMAIL] Starting OAuth with redirect_uri=%s", redirect_uri)
+            url, state = gmail.build_authorize_url(redirect_uri)
+            session['gmail_oauth_state'] = state
+            session['gmail_oauth_redirect'] = redirect_uri
+            return redirect(url)
+        except Exception as e:
+            logger.error("[GMAIL] Could not start OAuth: %s", e, exc_info=True)
+            flash(f"Could not start Gmail connect: {e}", "danger")
+            return redirect(url_for('admin_gmail'))
+
+    @app.route('/admin/gmail/callback')
+    @admin_required
+    def admin_gmail_callback():
+        from vim.gmail import service as gmail
+
+        if request.args.get('error'):
+            flash(f"Gmail access was not granted: {request.args.get('error')}", "danger")
+            return redirect(url_for('admin_gmail'))
+        if request.args.get('state') != session.get('gmail_oauth_state'):
+            flash("Gmail connect failed (OAuth state mismatch). Try Connect Gmail again.", "danger")
+            return redirect(url_for('admin_gmail'))
+        redirect_uri = session.get('gmail_oauth_redirect') or gmail.redirect_uri_from_request()
+        try:
+            payload = gmail.exchange_code(redirect_uri, request.url)
+            gmail.save_connection(
+                payload["token_json"],
+                payload.get("email") or "",
+                user_id=session.get('user_id'),
+            )
+            session.pop('gmail_oauth_state', None)
+            session.pop('gmail_oauth_redirect', None)
+            flash(
+                f"Connected {payload.get('email') or 'Gmail'}. "
+                "New invoice attachments will be processed automatically.",
+                "success",
+            )
+        except Exception as e:
+            logger.error("[GMAIL] OAuth callback failed: %s", e, exc_info=True)
+            flash(f"Could not finish Gmail connect: {e}", "danger")
+        return redirect(url_for('admin_gmail'))
+
 #     # ---------------- INTELLIGENT INVOICE UPLOAD ----------------
 #     @app.route('/admin/invoice_upload', methods=['GET', 'POST'])
 #     @admin_required

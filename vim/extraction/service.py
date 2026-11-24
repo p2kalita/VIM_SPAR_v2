@@ -248,6 +248,22 @@ def stage_upload(file_storage) -> tuple[Path, str]:
     logger.info("[STAGE] Staging upload: '%s'", original_name)
     saved_path = save_upload(file_storage)
     return saved_path, original_name
+
+
+def stage_bytes(original_name: str, data: bytes) -> tuple[Path, str]:
+    """Save raw bytes the same way an upload is staged, then return the path."""
+    config.validate()
+    name = secure_filename(original_name or "") or "attachment.bin"
+    ext = Path(name).suffix.lower()
+    if ext not in config.SUPPORTED_EXTENSIONS:
+        raise ValueError(unsupported_format_message(name))
+    if not data:
+        raise ValueError(f"{name} is empty.")
+    config.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    dest = config.UPLOAD_DIR / f"{uuid4().hex}_{name}"
+    dest.write_bytes(data)
+    logger.info("[STAGE] Staged bytes '%s' -> %s (%d bytes)", name, dest.name, len(data))
+    return dest, name
  
  
 def process_uploaded_file(file_storage) -> dict:
