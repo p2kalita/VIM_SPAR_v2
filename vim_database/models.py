@@ -628,3 +628,46 @@ class RejectedDocument(db.Model):
  
     def __repr__(self):
         return f"<RejectedDocument {self.RejectionID} {self.Reason}>"
+
+
+# -------------------------------
+# Gmail inbox ingest
+# One connected mailbox. Attachments are staged into the same extraction
+# jobs as a manual upload. Message IDs are stored so a file is processed once.
+# -------------------------------
+class GmailAccount(db.Model):
+    __tablename__ = "gmail_account"
+
+    AccountID = db.Column(db.Integer, primary_key=True)
+    Email = db.Column(db.String(200))
+    TokenJson = db.Column(db.Text)
+    Enabled = db.Column(db.Boolean, default=True)
+    SearchQuery = db.Column(db.String(500))
+    PollSeconds = db.Column(db.Integer, default=60)
+    LastSyncAt = db.Column(db.DateTime)
+    LastError = db.Column(db.String(500))
+    ConnectedAt = db.Column(db.DateTime)
+    ConnectedByUserID = db.Column(db.Integer)
+    AfterInternalMs = db.Column(db.String(30))
+
+    def __repr__(self):
+        return f"<GmailAccount {self.Email}>"
+
+
+class GmailIngestedMessage(db.Model):
+    __tablename__ = "gmail_ingested_message"
+
+    IngestID = db.Column(db.Integer, primary_key=True)
+    GmailMessageId = db.Column(db.String(64), nullable=False, unique=True, index=True)
+    ThreadId = db.Column(db.String(64))
+    FromAddress = db.Column(db.String(255))
+    Subject = db.Column(db.String(500))
+    AttachmentNames = db.Column(db.String(1000))
+    JobID = db.Column(db.String(64))
+    Status = db.Column(db.String(30), nullable=False, default="ingested")
+    Detail = db.Column(db.String(500))
+    InternalDateMs = db.Column(db.String(30))
+    CreatedDate = db.Column(db.DateTime, default=get_ist_now)
+
+    def __repr__(self):
+        return f"<GmailIngestedMessage {self.GmailMessageId} {self.Status}>"
