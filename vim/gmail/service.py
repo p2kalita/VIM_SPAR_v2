@@ -25,11 +25,22 @@ _MAX_MESSAGES_PER_SYNC = 20
 _ingest_lock = threading.Lock()
 
 
+def _reload_env() -> None:
+    try:
+        from dotenv import load_dotenv
+
+        load_dotenv(extraction_config.ENV_PATH, override=True)
+    except Exception:
+        pass
+
+
 def oauth_client_id() -> str:
+    _reload_env()
     return (os.getenv("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
 
 
 def oauth_client_secret() -> str:
+    _reload_env()
     return (os.getenv("GOOGLE_OAUTH_CLIENT_SECRET") or "").strip()
 
 
@@ -112,10 +123,14 @@ def build_authorize_url(redirect_uri: str) -> tuple[str, str]:
     _allow_http_localhost(redirect_uri)
     flow = Flow.from_client_config(_client_config(redirect_uri), scopes=SCOPES)
     flow.redirect_uri = redirect_uri
-    url, state = flow.authorization_url(
-        access_type="offline",
-        prompt="consent",
-    )
+    row = get_account()
+    auth_kwargs = {
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    if row and row.Email:
+        auth_kwargs["login_hint"] = row.Email
+    url, state = flow.authorization_url(**auth_kwargs)
     return url, state
 
 
