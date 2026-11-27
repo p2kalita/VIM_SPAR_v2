@@ -65,6 +65,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg>
                 Gmail ingest
             </a>
+            <a class="nav-item {% if p.startswith('/admin/ingest-outcomes') %}active{% endif %}" href="{{ url_for('gmail_tracking.dashboard') }}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16v12H4z"/><path d="m8 12 3 3 5-6"/></svg>
+                Ingest outcomes
+            </a>
             <a class="nav-item {% if p.startswith('/admin/invoice_extraction') %}active{% endif %}" href="{{ url_for('admin_invoice_extraction') }}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v6l4 2"/><circle cx="12" cy="14" r="7"/></svg>
                 Extraction

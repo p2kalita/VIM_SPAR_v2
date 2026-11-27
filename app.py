@@ -65,6 +65,9 @@ def create_app():
         register_routes(app)
         logger.info("Routes registered")
 
+        from vim.gmail_tracking import init_gmail_tracking
+        init_gmail_tracking(app)
+
         # ----------------------------------------------------------------
         # RBAC context processor
         # Injects two helpers into every Jinja2 template:

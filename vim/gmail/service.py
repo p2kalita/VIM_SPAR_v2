@@ -131,6 +131,11 @@ def build_authorize_url(redirect_uri: str) -> tuple[str, str]:
     if row and row.Email:
         auth_kwargs["login_hint"] = row.Email
     url, state = flow.authorization_url(**auth_kwargs)
+    # google-auth-oauthlib sends a PKCE challenge by default; the callback
+    # builds a new Flow, so keep the verifier for exchange_code().
+    from flask import session
+
+    session["gmail_oauth_verifier"] = flow.code_verifier
     return url, state
 
 
@@ -140,6 +145,9 @@ def exchange_code(redirect_uri: str, authorization_response: str) -> dict:
     _allow_http_localhost(redirect_uri)
     flow = Flow.from_client_config(_client_config(redirect_uri), scopes=SCOPES)
     flow.redirect_uri = redirect_uri
+    from flask import session
+
+    flow.code_verifier = session.pop("gmail_oauth_verifier", None)
     flow.fetch_token(authorization_response=authorization_response)
     creds = flow.credentials
     email = _email_from_credentials(creds)
