@@ -31,7 +31,7 @@
             <ol style="margin:0; padding-left:20px;">
                 <li>Open <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Google Auth Platform → Audience</a> (or OAuth consent screen → Test users).</li>
                 <li>Keep publishing status as <strong>Testing</strong>.</li>
-                <li>Add <strong>Test users</strong> → the exact Gmail you will connect (for example <code>titusaugustine53@gmail.com</code>).</li>
+                <li>Add <strong>Test users</strong> → the exact Gmail you will connect (for example <code>titusaugustine166@gmail.com</code>).</li>
                 <li>Save, then click Connect Gmail again and choose that same account.</li>
             </ol>
             <hr style="margin:16px 0; border-color:#cfe2ff;">
@@ -64,6 +64,9 @@
                         · <span style="color:#b91c1c;">{{ account.LastError }}</span>
                     {% endif %}
                 </span>
+            {% elif account and account.Email %}
+                <strong>Mailbox set to</strong> {{ account.Email }}
+                <span style="color:#e0a800;"> · click Connect Gmail to authorize</span>
             {% else %}
                 <span style="color:#666;">No mailbox connected yet.</span>
             {% endif %}
